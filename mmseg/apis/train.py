@@ -13,8 +13,7 @@ from mmseg.core import DistEvalHook, EvalHook
 from mmseg.datasets import build_dataloader, build_dataset
 from mmseg.utils import find_latest_checkpoint, get_root_logger
 
-
-def init_random_seed(seed=None, device='cuda'):
+def init_random_seed(seed, device='cuda'):
     """Initialize random seed.
 
     If the seed is not set, the seed will be automatically randomized,
@@ -22,7 +21,7 @@ def init_random_seed(seed=None, device='cuda'):
     Args:
         seed (int, Optional): The seed. Default to None.
         device (str): The device where the seed will be put on.
-            Default to 'cuda'.
+            Default t5.31e5
     Returns:
         int: Seed to be used.
     """
@@ -73,6 +72,10 @@ def train_segmentor(model,
                     meta=None):
     """Launch segmentor training."""
     logger = get_root_logger(cfg.log_level)
+
+    # Modifications to run on laptop
+    cfg.data.samples_per_gpu=1
+    cfg.data.workers_per_gpu=1
 
     # prepare data loaders
     dataset = dataset if isinstance(dataset, (list, tuple)) else [dataset]

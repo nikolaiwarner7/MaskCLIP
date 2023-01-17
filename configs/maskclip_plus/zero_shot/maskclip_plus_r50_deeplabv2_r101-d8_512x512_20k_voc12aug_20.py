@@ -1,5 +1,5 @@
 _base_ = [
-    '../../_base_/models/maskclip_plus_r50.py', '../../_base_/datasets/pascal_voc12_aug_20.py', 
+    '../../_base_/models/maskclip_plus_r50.py', '../../_base_/datasets/pascal_voc12.py', 
     '../../_base_/default_runtime.py', '../../_base_/schedules/schedule_20k.py'
 ]
 

@@ -55,6 +55,11 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def simple_test_with_logits(self, img, img_meta, **kwargs):
+        """Placeholder for single image test."""
+        pass
+
+    @abstractmethod
     def aug_test(self, imgs, img_metas, **kwargs):
         """Placeholder for augmentation test."""
         pass
@@ -69,6 +74,12 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
                 augs (multiscale, flip, etc.) and the inner list indicates
                 images in a batch.
         """
+        # Modified to work with training dataset 
+        # +2DO changes for working with test, too read in package
+        # + commneted out img meta assert
+        imgs = [imgs]
+        #img_metas = img_metas[0].keys()
+
         for var, name in [(imgs, 'imgs'), (img_metas, 'img_metas')]:
             if not isinstance(var, list):
                 raise TypeError(f'{name} must be a list, but got '
@@ -80,6 +91,7 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
                              f'num of image meta ({len(img_metas)})')
         # all images in the same aug batch all of the same ori_shape and pad
         # shape
+        """
         for img_meta in img_metas:
             ori_shapes = [_['ori_shape'] for _ in img_meta]
             assert all(shape == ori_shapes[0] for shape in ori_shapes)
@@ -87,9 +99,13 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
             assert all(shape == img_shapes[0] for shape in img_shapes)
             pad_shapes = [_['pad_shape'] for _ in img_meta]
             assert all(shape == pad_shapes[0] for shape in pad_shapes)
+        """
 
         if num_augs == 1:
-            return self.simple_test(imgs[0], img_metas[0], **kwargs)
+            #return self.simple_test(imgs[0], img_metas[0], **kwargs)
+            # Remove kwargs so gt_semantic_seg can pass
+            # Replace img_metas[0] with img_metas
+            return self.simple_test_with_logits(imgs[0], img_metas), #**kwargs)
         else:
             return self.aug_test(imgs, img_metas, **kwargs)
 
@@ -219,7 +235,8 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
                     wait_time=0,
                     out_file=None,
                     opacity=0.5,
-                    gt=None):
+                    gt=None,
+                    produce_maskclip_maps=False):
         """Draw `result` over `img`.
 
         Args:
@@ -244,7 +261,8 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         """
         img = mmcv.imread(img)
         img = img.copy()
-        seg = result[0]
+        # Changed to 
+        seg = result[0][0]
         if classes is not None:
             self.CLASSES = classes
         if palette is None:
@@ -285,7 +303,14 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         if show:
             mmcv.imshow(img, win_name, wait_time)
         if out_file is not None:
-            mmcv.imwrite(img, out_file)
+            if produce_maskclip_maps:
+                # Want:
+                # 1) The combined RGB + saliency array
+                # Do loop logic outside of this function, send in seg result and image here
+                # 2) The apppropriately named output file
+                mmcv.write()
+            else:
+                mmcv.imwrite(img, out_file)
 
         if not (show or out_file):
             warnings.warn('show==False and out_file is not specified, only '

@@ -185,7 +185,7 @@ def main():
 
     # build the dataloader
     # TODO: support multiple images per gpu (only minor changes are needed)
-    dataset = build_dataset(cfg.data.test)
+    dataset = build_dataset(cfg.data.train)
     data_loader = build_dataloader(
         dataset,
         samples_per_gpu=1,
@@ -261,18 +261,18 @@ def main():
 
         results = single_gpu_test(
             model,
-
             ##
             data_loader,
-
-
             args.show,
             args.show_dir,
             False,
             args.opacity,
             pre_eval=args.eval is not None and not eval_on_format_results,
             format_only=args.format_only or eval_on_format_results,
-            format_args=eval_kwargs)
+            format_args=eval_kwargs,
+            # To change imsave to the individual tensor entries for 4D maps
+            # +2DO: check the scaling of the logits as well
+            produce_maskclip_maps=True)
     else:
         model = MMDistributedDataParallel(
             model.cuda(),
