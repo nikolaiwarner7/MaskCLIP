@@ -27,6 +27,9 @@ from mmseg.utils import collect_env, get_root_logger
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a segmentor')
+
+    # Switch to use deeplab backbone
+    #parser.add_argument('--config', default='configs/deeplabv3plus/deeplabv3plus_r50-d8_512x512_40k_voc12aug.py', help='test config file path')
     parser.add_argument('--config', default='configs/maskclip_plus/zero_shot/maskclip_plus_r50_deeplabv2_r101-d8_512x512_20k_voc12aug_20.py', help='test config file path')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     parser.add_argument(
@@ -173,6 +176,29 @@ def main():
     meta['seed'] = seed
     meta['exp_name'] = osp.basename(args.config)
 
+    # Change model parameters to run deeplabv3 base (not maskclip + version)
+    RGBS_NUM_CLASSES = 2 # background + foreground
+
+    #cfg.model['pretrained'] = 'open-mmlab://resnet50_v1c'
+    # By deafult pretrained set twice
+    del cfg.model['pretrained']
+    cfg.model['backbone'] = {'type': 'ResNetV1c', 'depth': 50, 'num_stages': 4, \
+        'out_indices': (0, 1, 2, 3), 'dilations': (1, 1, 2, 4), 'strides': (1, 2, 1, 1),\
+             'norm_cfg': {'type': 'SyncBN', 'requires_grad': True}, 'norm_eval': False,\
+                 'style': 'pytorch', 'contract_dilation': True, 'pretrained': 'open-mmlab://resnet50_v1c'}
+
+    cfg.model['decode_head'] = {'type': 'DepthwiseSeparableASPPHead', 'in_channels': 2048,\
+        'in_index': 3, 'channels': 512, 'dilations': (1, 12, 24, 36), 'c1_in_channels': 256,\
+             'c1_channels': 48, 'dropout_ratio': 0.1, 'num_classes': RGBS_NUM_CLASSES,\
+                 'norm_cfg': {'type': 'SyncBN', 'requires_grad': True}, \
+                    'align_corners': False, 'loss_decode': {'type': 'CrossEntropyLoss', 'use_sigmoid': False, 'loss_weight': 1.0}}
+
+    cfg.model['auxiliary_head'] = {'type': 'FCNHead', 'in_channels': 1024, 'in_index': 2, 'channels': 256, 'num_convs': 1,\
+         'concat_input': False, 'dropout_ratio': 0.1, 'num_classes': RGBS_NUM_CLASSES, 'norm_cfg': {'type': 'SyncBN', 'requires_grad': True},\
+             'align_corners': False, 'loss_decode': {'type': 'CrossEntropyLoss', 'use_sigmoid': False, 'loss_weight': 0.4}}
+
+    ####
+    
     model = build_segmentor(
         cfg.model,
         train_cfg=cfg.get('train_cfg'),
@@ -190,8 +216,8 @@ def main():
     logger.info(model)
 
     # Changes to switch to our RGB-S data
-    cfg.data.train.img_dir = 'RGB_S_Images'
-    cfg.data.train.ann_dir = 'RGB_S_Annotations'
+    cfg.data.train.img_dir = 'RGB_S_Images/train'
+    cfg.data.train.ann_dir = 'RGB_S_Annotations/train'
     cfg.data.train.split = 'ImageSets/Segmentation/RGBS_train.txt'
     cfg.data.train.type = 'PascalVOCDatasetRGBS'
 
@@ -203,6 +229,17 @@ def main():
 
     # Remove unnecessary augmentations (changes shape) for now
     cfg.data.train['pipeline'].pop(5) # PhotoMetricDistortion
+
+    # Set parameters for validation data
+    cfg.data.val.img_dir = 'RGB_S_Images/val'
+    cfg.data.val.ann_dir = 'RGB_S_Annotations/val'
+    cfg.data.val.split = 'ImageSets/Segmentation/RGBS_val.txt'
+    cfg.data.val.type = 'PascalVOCDatasetRGBS'
+
+    # Set normalization in 4D for val
+    cfg.data.val['pipeline'][1]['transforms'][2] = \
+        {'type': 'Normalize', 'mean': [123.675, 116.28, 103.53, 0.5], 'std': [58.395, 57.12, 57.375, 0.5], 'to_rgb': True}
+
 
 
     datasets = [build_dataset(cfg.data.train)]

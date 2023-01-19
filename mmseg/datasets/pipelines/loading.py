@@ -60,11 +60,14 @@ class LoadImageFromFile(object):
             filename = results['img_info']['filename']
         img_bytes = self.file_client.get(filename)
         
-        img = np.load(filename, allow_pickle = True)
-        #img = mmcv.imfrombytes(
-        #    #img_bytes, flag=self.color_type, backend=self.imdecode_backend)
-        #    # Switching to load for RGBS
-        #    img_bytes, flag=self.color_type, backend='rgbs')
+        if filename[-4:] == '.npy':
+            img = np.load(filename, allow_pickle = True)
+        # Logic for if we load images as 4D npy array, or typical images jpg/png for VOC
+        elif filename[-4:] == '.jpg' or filename[-4:] == '.png':
+            img = mmcv.imfrombytes(
+               img_bytes, flag=self.color_type, backend=self.imdecode_backend)
+            # Deprecated: Switching to load for RGBS
+            #img_bytes, flag=self.color_type, backend='rgbs')
 
         if self.to_float32:
             img = img.astype(np.float32)
@@ -143,11 +146,16 @@ class LoadAnnotations(object):
             filename = results['ann_info']['seg_map']
         img_bytes = self.file_client.get(filename)
         
-        gt_semantic_seg = np.load(filename, allow_pickle=True)
-        #gt_semantic_seg = mmcv.imfrombytes(
-        #    img_bytes, flag='unchanged',
-        #    backend=self.imdecode_backend).squeeze().astype(np.int64)
-        # modify if custom classes
+
+        if filename[-4:] == '.npy':
+            gt_semantic_seg = np.load(filename, allow_pickle = True)
+        # Logic for if we load images as 4D npy array, or typical images jpg/png for VOC
+        elif filename[-4:] == '.jpg' or filename[-4:] == '.png':
+                gt_semantic_seg = mmcv.imfrombytes(
+                img_bytes, flag='unchanged',
+                backend=self.imdecode_backend).squeeze().astype(np.int64)
+
+
         if results.get('label_map', None) is not None:
             for old_id, new_id in results['label_map'].items():
                 gt_semantic_seg[gt_semantic_seg == old_id] = new_id

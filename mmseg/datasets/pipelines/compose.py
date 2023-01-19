@@ -5,7 +5,6 @@ from mmcv.utils import build_from_cfg
 
 from ..builder import PIPELINES
 
-
 @PIPELINES.register_module()
 class Compose(object):
     """Compose multiple transforms sequentially.
@@ -36,11 +35,19 @@ class Compose(object):
         Returns:
            dict: Transformed data.
         """
+        # May need to be specific to produce-maskclip-maps script, with flag
+        # For the index 7 bit
+        # 2DO: add flag so this doesn't get called during actual training job
+        if 'raw_gt_seg' not in self.transforms[8].keys:
+            self.transforms[8].keys.append('raw_gt_seg')
 
-        for t in self.transforms:
+        for i, t in enumerate(self.transforms):
             data = t(data)
             if data is None:
                 return None
+            # After loading annotation, get raw (unpadded) and store
+            if i == 1:
+                data['raw_gt_seg'] = data['gt_semantic_seg'].copy()
         return data
 
     def __repr__(self):

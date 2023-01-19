@@ -10,7 +10,7 @@ from torch.utils.tensorboard._utils import figure_to_image
 from mmcv.engine import collect_results_cpu, collect_results_gpu
 from mmcv.image import tensor2imgs
 from mmcv.runner import get_dist_info
-from nwarner_common_utils import CLASS_SPLITS
+from nwarner_common_utils import CLASS_SPLITS, SUBSAMPLE, OUT_ANNOTATION_DIR, OUT_RGB_S_DIR, SPLIT
 
 import matplotlib.pyplot as plt
 import math
@@ -93,10 +93,6 @@ def single_gpu_test(model,
     loader_indices = data_loader.batch_sampler
     
     # To debug multichannel model, use a subsample
-    SUBSAMPLE = 11
-    OUT_ANNOTATION_DIR = 'data/VOCdevkit/VOC2012/RGB_S_Annotations'
-    OUT_RGB_S_DIR = 'data/VOCdevkit/VOC2012/RGB_S_Images'
-    SPLIT = 'seen'
 
     for batch_indices, data in zip(loader_indices, data_loader):
         if batch_indices[0] < SUBSAMPLE:
@@ -119,8 +115,10 @@ def single_gpu_test(model,
 
                     if produce_maskclip_maps:
                         # 1) Find the GT classes from img_metas
-                        gt_annotations = data['gt_semantic_seg'].data[0]
-                        gt_classes = np.unique(gt_annotations).tolist()
+                        #gt_annotations = data['gt_semantic_seg'].data[0]
+                        gt_raw_annotation = data['raw_gt_seg'][0]
+                        # Pre-padded from dataloader transforms step-> want raw
+                        gt_classes = np.unique(gt_raw_annotation).tolist()
                         # Remove background, ignore (0,255)
                         if 0 in gt_classes:
                             gt_classes.remove(0)
@@ -135,18 +133,25 @@ def single_gpu_test(model,
                         for cls in gt_present_classes:
                             if out_dir:
                                 # 4) Grab the corresponding class-specific segmentation
-                                cls_specific_gt_seg = gt_annotations[0,0] == cls
+                                cls_specific_gt_seg = gt_raw_annotation == cls
 
 
                                 out_name = img_meta['ori_filename']
                                 out_name_with_cls = out_name.replace('.jpg','_class%s.npy' % cls)
                                 np.save(OUT_ANNOTATION_DIR+'/'+out_name_with_cls, cls_specific_gt_seg)    
 
-                                cls_logit = result[0][1][0, cls].detach().cpu()
+                                # 0 indexing for class (cls)
+                                cls_logit = result[0][1][0, cls-1].detach().cpu()
                                 cls_logit = np.array(cls_logit)
 
+
+                                ## Normalize class logits:
+                                # From 0-1 for preproc later
+                                norm_cls_logit = (cls_logit - np.min(cls_logit)) / (np.max(cls_logit)-np.min(cls_logit))
+
                                 # Combine with full size image
-                                img_with_cls_logit = np.concatenate((img_show, np.expand_dims(cls_logit, -1)), axis=-1)
+                                img_with_cls_logit = np.concatenate((img_show, np.expand_dims(norm_cls_logit, -1)), axis=-1)
+
 
                                 # Write this out using np.save
                                 np.save(OUT_RGB_S_DIR+'/'+out_name_with_cls, img_with_cls_logit)

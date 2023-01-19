@@ -87,7 +87,9 @@ class EncoderDecoder(BaseSegmentor):
         losses = dict()
         if self.feed_img_to_decode_head:
             loss_decode = self.decode_head.forward_train(x, img_metas, gt_semantic_seg,
-                                                            self.train_cfg, img)
+                                                            self.train_cfg)
+            #loss_decode = self.decode_head.forward_train(x, img_metas, gt_semantic_seg,
+             #                                               self.train_cfg, img)
         else:
             loss_decode = self.decode_head.forward_train(x, img_metas, gt_semantic_seg,
                                                             self.train_cfg)

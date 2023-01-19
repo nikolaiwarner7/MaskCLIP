@@ -9,6 +9,7 @@ import sys
 #sys.path.append('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP')
 #sys.path.append('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP/mmseg')
 
+from nwarner_common_utils import PRODUCE_MASKCLIP_MAPS_CONFIG
 sys.path.append('/root/MaskCLIP/')
 sys.path.append('/root/MaskCLIP/mmseg')
 
@@ -189,13 +190,32 @@ def main():
 
     # build the dataloader
     # TODO: support multiple images per gpu (only minor changes are needed)
-    dataset = build_dataset(cfg.data.train)
+    
+    if PRODUCE_MASKCLIP_MAPS_CONFIG == 'train':
+        # Was causing an issue in dataloader loading size, investigate shortly
+        #cfg.data.train['pipeline'].pop(3) # remove random crop
+        cfg.data.train['pipeline'].pop(5) # remove distortion
+        # Collect the raw gt seg to make available during inference
+        # Need original meta-keys otherwise throws key errors
+        #cfg.data.train['pipeline'][6] = {'type': 'Collect', 'keys': ['img', 'gt_semantic_seg', 'raw_gt_seg'], \
+        #    'meta_keys' : ['filename', 'ori_filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'flip', 'flip_direction', 'img_norm_cfg']}
+
+        dataset = build_dataset(cfg.data.train)
+        # Need requisite options based of data.train/ val for handling gt_segs in pipeline
+    elif PRODUCE_MASKCLIP_MAPS_CONFIG == 'val':
+        # We want the same processing and access to gt_segs for validation 
+        cfg.data.train['pipeline'].pop(5) # remove distortion
+        cfg.data.val.pipeline = cfg.data.train.pipeline
+        dataset = build_dataset(cfg.data.val)
+
     data_loader = build_dataloader(
         dataset,
         samples_per_gpu=1,
         workers_per_gpu=cfg.data.workers_per_gpu,
         dist=distributed,
         shuffle=False)
+    
+
 
     # build the model and load checkpoint
     cfg.model.train_cfg = None

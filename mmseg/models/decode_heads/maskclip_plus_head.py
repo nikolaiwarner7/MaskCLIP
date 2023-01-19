@@ -33,7 +33,10 @@ class MaskClipPlusHead(BaseDecodeHead):
         self.start_clip_guided = start_clip_guided
         self.self_train = (start_self_train[0] >= 0)
         self.clip_guided = (start_clip_guided[0] >= 0)
-        self.train_unlabeled = self.self_train or self.clip_guided
+
+        # No maskclip guided training here, just using pure seg network
+        self.train_unlabeled = False
+        #self.train_unlabeled = self.self_train or self.clip_guided
         self.register_buffer('_iter_counter', torch.tensor(0, device='cuda'))
         self.clip_weights_path = clip_weights_path
         self.cls_bg = cls_bg
