@@ -236,7 +236,7 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
                     out_file=None,
                     opacity=0.5,
                     gt=None,
-                    produce_maskclip_maps=False):
+                    produce_maskclip_maps_class_id=None):
         """Draw `result` over `img`.
 
         Args:
@@ -262,7 +262,7 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         img = mmcv.imread(img)
         img = img.copy()
         # Changed to 
-        seg = result[0][0]
+        seg = result[0][0][0]
         if classes is not None:
             self.CLASSES = classes
         if palette is None:
@@ -303,12 +303,18 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         if show:
             mmcv.imshow(img, win_name, wait_time)
         if out_file is not None:
-            if produce_maskclip_maps:
-                # Want:
-                # 1) The combined RGB + saliency array
-                # Do loop logic outside of this function, send in seg result and image here
-                # 2) The apppropriately named output file
-                mmcv.write()
+            if produce_maskclip_maps_class_id:
+                # Select the logit corresponding to the class
+                cls_logit = result[0][1][0, produce_maskclip_maps_class_id].detach().cpu()
+                cls_logit = np.array(cls_logit)
+
+                # Combine with full size image
+                img_with_cls_logit = np.concatenate((img, np.expand_dims(cls_logit, -1)), axis=-1)
+
+                # Write this out using np.save
+                np.save(out_file, img_with_cls_logit)
+
+                # We also want the 
             else:
                 mmcv.imwrite(img, out_file)
 

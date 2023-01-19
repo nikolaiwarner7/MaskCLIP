@@ -5,6 +5,10 @@ import torch
 from mmcv.parallel import collate, scatter
 from mmcv.runner import load_checkpoint
 
+import sys
+sys.path.append('/root/MaskCLIP/')
+sys.path.append('/root/MaskCLIP/mmseg')
+
 from mmseg.datasets.pipelines import Compose
 from mmseg.models import build_segmentor
 from mmseg.datasets import build_dataset

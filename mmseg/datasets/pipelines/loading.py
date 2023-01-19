@@ -59,8 +59,13 @@ class LoadImageFromFile(object):
         else:
             filename = results['img_info']['filename']
         img_bytes = self.file_client.get(filename)
-        img = mmcv.imfrombytes(
-            img_bytes, flag=self.color_type, backend=self.imdecode_backend)
+        
+        img = np.load(filename, allow_pickle = True)
+        #img = mmcv.imfrombytes(
+        #    #img_bytes, flag=self.color_type, backend=self.imdecode_backend)
+        #    # Switching to load for RGBS
+        #    img_bytes, flag=self.color_type, backend='rgbs')
+
         if self.to_float32:
             img = img.astype(np.float32)
 
@@ -137,9 +142,11 @@ class LoadAnnotations(object):
         else:
             filename = results['ann_info']['seg_map']
         img_bytes = self.file_client.get(filename)
-        gt_semantic_seg = mmcv.imfrombytes(
-            img_bytes, flag='unchanged',
-            backend=self.imdecode_backend).squeeze().astype(np.int64)
+        
+        gt_semantic_seg = np.load(filename, allow_pickle=True)
+        #gt_semantic_seg = mmcv.imfrombytes(
+        #    img_bytes, flag='unchanged',
+        #    backend=self.imdecode_backend).squeeze().astype(np.int64)
         # modify if custom classes
         if results.get('label_map', None) is not None:
             for old_id, new_id in results['label_map'].items():

@@ -1,4 +1,4 @@
-name: base
+name: maskclip_env
 channels:
   - pytorch
   - conda-forge
@@ -100,7 +100,6 @@ dependencies:
   - zstd=1.4.9=haebb681_0
   - pip:
       - addict==2.4.0
-      - chess==1.8.0
       - click==8.1.3
       - colorama==0.4.6
       - commonmark==0.9.1
@@ -109,8 +108,6 @@ dependencies:
       - defusedxml==0.7.1
       - fonttools==4.38.0
       - importlib-metadata==6.0.0
-      - key-mapper==1.2.1
-      - kiwisolver==1.4.4
       - markdown==3.4.1
       - matplotlib==3.6.2
       - mmcls==0.25.0

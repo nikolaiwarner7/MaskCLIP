@@ -140,8 +140,9 @@ class EncoderDecoder(BaseSegmentor):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
-
-        x = self.extract_feat(img)
+        import numpy as np
+        img = torch.tensor(np.zeros((1,4,512,512)))
+        x = self.extract_feat(img.cuda())
 
         losses = dict()
 

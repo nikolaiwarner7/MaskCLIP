@@ -94,6 +94,8 @@ def single_gpu_test(model,
     
     # To debug multichannel model, use a subsample
     SUBSAMPLE = 11
+    OUT_ANNOTATION_DIR = 'data/VOCdevkit/VOC2012/RGB_S_Annotations'
+    OUT_RGB_S_DIR = 'data/VOCdevkit/VOC2012/RGB_S_Images'
     SPLIT = 'seen'
 
     for batch_indices, data in zip(loader_indices, data_loader):
@@ -102,8 +104,9 @@ def single_gpu_test(model,
                 result = model(return_loss=False, **data)
 
             if show or out_dir:
-                img_tensor = data['img'][0]
-                img_metas = data['img_metas'][0].data[0]
+                # Allows access to train data in test format
+                img_tensor = data['img'].data[0]
+                img_metas = data['img_metas'].data[0]
                 imgs = tensor2imgs(img_tensor, **img_metas[0]['img_norm_cfg'])
                 assert len(imgs) == len(img_metas)
 
@@ -119,31 +122,52 @@ def single_gpu_test(model,
                         gt_annotations = data['gt_semantic_seg'].data[0]
                         gt_classes = np.unique(gt_annotations).tolist()
                         # Remove background, ignore (0,255)
-                        gt_classes.remove(0)
-                        gt_classes.remove(255)
+                        if 0 in gt_classes:
+                            gt_classes.remove(0)
+                        if 255 in gt_classes:
+                            gt_classes.remove(255)
 
-                        gt_present_classes = [cls for cls in gt_classes if cls in CLASS_SPLITS[SPLIT]]
+
                         # 2) Create a list of GT present classes
+                        gt_present_classes = [cls for cls in gt_classes if cls in CLASS_SPLITS[SPLIT]]
+
                         # 3) Loop through said list
-                        pass
+                        for cls in gt_present_classes:
+                            if out_dir:
+                                # 4) Grab the corresponding class-specific segmentation
+                                cls_specific_gt_seg = gt_annotations[0,0] == cls
 
-                    if out_dir:
-                        out_file = osp.join(out_dir, img_meta['ori_filename'])
-                    else:
-                        out_file = None
 
-                    model.module.show_result(
-                        img_show,
-                        result,
-                        palette=dataset.PALETTE,
-                        show=show,
-                        out_file=out_file,
-                        opacity=opacity,
-                        produce_maskclip_maps=produce_maskclip_maps,
-                        )
+                                out_name = img_meta['ori_filename']
+                                out_name_with_cls = out_name.replace('.jpg','_class%s.npy' % cls)
+                                np.save(OUT_ANNOTATION_DIR+'/'+out_name_with_cls, cls_specific_gt_seg)    
 
-            if efficient_test:
-                result = [np2tmp(_, tmpdir='.efficient_test') for _ in result]
+                                cls_logit = result[0][1][0, cls].detach().cpu()
+                                cls_logit = np.array(cls_logit)
+
+                                # Combine with full size image
+                                img_with_cls_logit = np.concatenate((img_show, np.expand_dims(cls_logit, -1)), axis=-1)
+
+                                # Write this out using np.save
+                                np.save(OUT_RGB_S_DIR+'/'+out_name_with_cls, img_with_cls_logit)
+
+                                out_file = osp.join(out_dir, out_name_with_cls)
+                                
+                            else:
+                                out_file = None
+
+                                model.module.show_result(
+                                    img_show,
+                                    result,
+                                    palette=dataset.PALETTE,
+                                    show=show,
+                                    out_file=out_file,
+                                    opacity=opacity,
+                                    produce_maskclip_maps_class_id=cls,
+                                    )
+
+                if efficient_test:
+                    result = [np2tmp(_, tmpdir='.efficient_test') for _ in result]
 
             if format_only:
                 result = dataset.format_results(
@@ -151,7 +175,9 @@ def single_gpu_test(model,
             if pre_eval:
                 # TODO: adapt samples_per_gpu > 1.
                 # only samples_per_gpu=1 valid now
-                result = dataset.pre_eval(result, indices=batch_indices)
+                # This is to correct from training data loader mixed in with test
+                seg_pred = result[0][0][0]
+                result = dataset.pre_eval(seg_pred, indices=batch_indices)
                 results.extend(result)
             else:
                 results.extend(result)

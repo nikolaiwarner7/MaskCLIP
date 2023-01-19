@@ -6,8 +6,11 @@ import shutil
 import time
 import warnings
 import sys
-sys.path.append('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP')
-sys.path.append('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP/mmseg')
+#sys.path.append('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP')
+#sys.path.append('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP/mmseg')
+
+sys.path.append('/root/MaskCLIP/')
+sys.path.append('/root/MaskCLIP/mmseg')
 
 
 import mmcv
@@ -137,7 +140,8 @@ def main():
 
     if args.out is not None and not args.out.endswith(('.pkl', '.pickle')):
         raise ValueError('The output file must be a pkl file.')
-
+    
+    os.chdir('/root/MaskCLIP/')
     cfg = mmcv.Config.fromfile(args.config)
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
@@ -310,5 +314,6 @@ def main():
 
 if __name__ == '__main__':
     # For debugging it locally, change dir to root
-    os.chdir('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP')
+    #os.chdir(os.path.join(os.getcwd(),'mmseg'))
+    #os.chdir('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP')
     main()
