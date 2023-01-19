@@ -195,6 +195,15 @@ def main():
     cfg.data.train.split = 'ImageSets/Segmentation/RGBS_train.txt'
     cfg.data.train.type = 'PascalVOCDatasetRGBS'
 
+    # Normalization in 4D
+    # Set mean to 0.5, std 0.5 (0,1) range of data for saliency
+    #
+    cfg.data.train['pipeline'][6] = \
+        {'type': 'Normalize', 'mean': [123.675, 116.28, 103.53, 0.5], 'std': [58.395, 57.12, 57.375, 0.5], 'to_rgb': True}
+
+    # Remove unnecessary augmentations (changes shape) for now
+    cfg.data.train['pipeline'].pop(5) # PhotoMetricDistortion
+
 
     datasets = [build_dataset(cfg.data.train)]
     # More changes to switch to RGB-S data
