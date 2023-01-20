@@ -122,7 +122,8 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         """
         if return_loss:
             # Replacing 'gt_semantic_seg' with 'raw_gt_seg'
-            del kwargs['raw_gt_seg']
+            if 'raw_gt_seg' in kwargs.keys():
+                del kwargs['raw_gt_seg']
             return self.forward_train(img, img_metas, **kwargs)
         else:
             return self.forward_test(img, img_metas, **kwargs)

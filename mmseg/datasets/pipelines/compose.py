@@ -2,6 +2,7 @@
 import collections
 
 from mmcv.utils import build_from_cfg
+from nwarner_common_utils import PRODUCING_MASKCLIP_DATA
 
 from ..builder import PIPELINES
 
@@ -38,8 +39,9 @@ class Compose(object):
         # May need to be specific to produce-maskclip-maps script, with flag
         # For the index 7 bit
         # 2DO: add flag so this doesn't get called during actual training job
-        if 'raw_gt_seg' not in self.transforms[8].keys:
-            self.transforms[8].keys.append('raw_gt_seg')
+        if PRODUCING_MASKCLIP_DATA:
+            if 'raw_gt_seg' not in self.transforms[8].keys:
+                self.transforms[8].keys.append('raw_gt_seg')
 
         for i, t in enumerate(self.transforms):
             data = t(data)

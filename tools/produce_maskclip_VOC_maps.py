@@ -191,6 +191,7 @@ def main():
     # build the dataloader
     # TODO: support multiple images per gpu (only minor changes are needed)
     
+    #cfg.data.train['gt_raw_seg'] = True
     if PRODUCE_MASKCLIP_MAPS_CONFIG == 'train':
         # Was causing an issue in dataloader loading size, investigate shortly
         #cfg.data.train['pipeline'].pop(3) # remove random crop

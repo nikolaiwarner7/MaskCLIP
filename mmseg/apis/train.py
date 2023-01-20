@@ -74,8 +74,8 @@ def train_segmentor(model,
     logger = get_root_logger(cfg.log_level)
 
     # Modifications to run on laptop
-    cfg.data.samples_per_gpu=1
-    cfg.data.workers_per_gpu=1
+    #cfg.data.samples_per_gpu=2
+    #cfg.data.workers_per_gpu=1
 
     # prepare data loaders
     dataset = dataset if isinstance(dataset, (list, tuple)) else [dataset]

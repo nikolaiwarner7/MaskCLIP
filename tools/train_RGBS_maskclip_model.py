@@ -178,6 +178,7 @@ def main():
 
     # Change model parameters to run deeplabv3 base (not maskclip + version)
     RGBS_NUM_CLASSES = 2 # background + foreground
+    # Testing 21 to see if it fixes it
 
     #cfg.model['pretrained'] = 'open-mmlab://resnet50_v1c'
     # By deafult pretrained set twice
@@ -240,7 +241,8 @@ def main():
     cfg.data.val['pipeline'][1]['transforms'][2] = \
         {'type': 'Normalize', 'mean': [123.675, 116.28, 103.53, 0.5], 'std': [58.395, 57.12, 57.375, 0.5], 'to_rgb': True}
 
-
+    # Set batch size to 2 to allow batch norm in ASPP decoder head to work
+    cfg.data['samples_per_gpu'] = 2
 
     datasets = [build_dataset(cfg.data.train)]
     # More changes to switch to RGB-S data
