@@ -2,6 +2,7 @@ CLASS_SPLITS = {'seen': list(range(1,15+1)),
                 'unseen': list(range(16,20+1)),
                 'all': list(range(1,20+1))}
 
+# Testing
 
 # Parameters for producing Maskclip VOC maps loaded in mmseg/apis/single_gpu test test.py
 PRODUCING_MASKCLIP_DATA = False # Fixed flag for dataloader to store raw segs, only run when producing data
