@@ -296,6 +296,40 @@ class CustomDataset(Dataset):
 
         return pre_eval_results
 
+
+    def rgbs_pre_eval(self, preds, indices, class_num):
+        """Collect eval result from each iteration.
+
+        Args:
+            preds (list[torch.Tensor] | torch.Tensor): the segmentation logit
+                after argmax, shape (N, H, W).
+            indices (list[int] | int): the prediction related ground truth
+                indices.
+
+        Returns:
+            list[torch.Tensor]: (area_intersect, area_union, area_prediction,
+                area_ground_truth).
+        """
+        # In order to compat with batch inference
+        if not isinstance(indices, list):
+            indices = [indices]
+        if not isinstance(preds, list):
+            preds = [preds]
+
+        pre_eval_results = []
+
+        for pred, index in zip(preds, indices):
+            seg_map = self.get_gt_seg_map_by_idx(index)
+            # Replace the foreground with the class idx for IoU calc
+            seg_map[seg_map==1] = class_num
+            pred[pred==1] = class_num
+            pre_eval_results.append(
+                intersect_and_union(pred, seg_map, len(self.CLASSES),
+                                    self.ignore_index, self.label_map,
+                                    self.reduce_zero_label))
+
+        return pre_eval_results
+
     def get_classes_and_palette(self, classes=None, palette=None):
         """Get class names of current dataset.
 

@@ -11,7 +11,7 @@ from mmcv.engine import collect_results_cpu, collect_results_gpu
 from mmcv.image import tensor2imgs
 from mmcv.runner import get_dist_info
 from nwarner_common_utils import CLASS_SPLITS, SUBSAMPLE, OUT_ANNOTATION_DIR, OUT_RGB_S_DIR, SPLIT
-from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, rgbs_pre_eval
+from nwarner_common_utils import PRODUCING_MASKCLIP_DATA
 
 
 import matplotlib.pyplot as plt
@@ -195,7 +195,7 @@ def single_gpu_test(model,
 
 
                 seg_pred = result[0][0][0]
-                result = rgbs_pre_eval(seg_pred, indices=batch_indices, target_label)
+                result = dataset.rgbs_pre_eval(seg_pred, indices=batch_indices, class_num=target_label)
                 results.extend(result)
             else:
                 results.extend(result)

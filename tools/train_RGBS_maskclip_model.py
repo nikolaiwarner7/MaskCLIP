@@ -296,8 +296,9 @@ def main():
     model.to(torch.device('cuda'))
 
     # For debugging call validation interval sooner
-    cfg.checkpoint_config.interval = 100
-    cfg.evaluation.interval = 100
+    EVAL_INTERVAL = 2000
+    cfg.checkpoint_config.interval = EVAL_INTERVAL
+    cfg.evaluation.interval = EVAL_INTERVAL
 
     train_segmentor(
         model,
