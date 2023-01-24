@@ -130,11 +130,16 @@ class LoadAnnotations(object):
         Returns:
             dict: The dict contains loaded semantic segmentation annotations.
         """
-        if results['ann_info']['seg_map'] is None:
-            ori_shape = results['ori_shape']
-            results['gt_semantic_seg'] = np.ones(ori_shape[:2], dtype=np.int64) * -1
-            results['seg_fields'].append('gt_semantic_seg')
-            return results
+        if 'ann_info' in results.keys():
+            if results['ann_info']['seg_map'] is None:
+                ori_shape = results['ori_shape']
+                results['gt_semantic_seg'] = np.ones(ori_shape[:2], dtype=np.int64) * -1
+                results['seg_fields'].append('gt_semantic_seg')
+                return results
+        # For trianing validation case
+        elif 'ann_info' not in results.keys():
+            results['ann_info'] = {}
+            results['ann_info']['seg_map'] = results['img_info']['ann']['seg_map']
 
         if self.file_client is None:
             self.file_client = mmcv.FileClient(**self.file_client_args)

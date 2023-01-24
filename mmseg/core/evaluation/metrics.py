@@ -28,7 +28,8 @@ def intersect_and_union(pred_label,
                         num_classes,
                         ignore_index,
                         label_map=dict(),
-                        reduce_zero_label=False):
+                        reduce_zero_label=False,
+                        rgbs_training=False):
     """Calculate intersection and Union.
 
     Args:

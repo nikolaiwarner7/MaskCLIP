@@ -48,7 +48,7 @@ class Compose(object):
             if data is None:
                 return None
             # After loading annotation, get raw (unpadded) and store
-            if i == 1:
+            if i == 1 and PRODUCING_MASKCLIP_DATA:
                 data['raw_gt_seg'] = data['gt_semantic_seg'].copy()
         return data
 

@@ -243,6 +243,8 @@ class EncoderDecoder(BaseSegmentor):
         """
 
         assert self.test_cfg.mode in ['slide', 'whole']
+        # With loader fix
+        img_meta = img_meta[0]
         ori_shape = img_meta[0]['ori_shape']
         assert all(_['ori_shape'] == ori_shape for _ in img_meta)
         if self.test_cfg.mode == 'slide':

@@ -11,6 +11,8 @@ from mmcv.engine import collect_results_cpu, collect_results_gpu
 from mmcv.image import tensor2imgs
 from mmcv.runner import get_dist_info
 from nwarner_common_utils import CLASS_SPLITS, SUBSAMPLE, OUT_ANNOTATION_DIR, OUT_RGB_S_DIR, SPLIT
+from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, rgbs_pre_eval
+
 
 import matplotlib.pyplot as plt
 import math
@@ -97,6 +99,9 @@ def single_gpu_test(model,
     for batch_indices, data in zip(loader_indices, data_loader):
         if batch_indices[0] < SUBSAMPLE:
             with torch.no_grad():
+                if not PRODUCING_MASKCLIP_DATA:
+                    data['img'] = data['img'][0]
+                    data['gt_semantic_seg'] = data['gt_semantic_seg'][0]
                 result = model(return_loss=False, **data)
 
             if show or out_dir:
@@ -134,7 +139,7 @@ def single_gpu_test(model,
                             if out_dir:
                                 # 4) Grab the corresponding class-specific segmentation
                                 cls_specific_gt_seg = gt_raw_annotation == cls
-
+                                cls_specific_gt_seg = torch.tensor(cls_specific_gt_seg.numpy().astype(int))
 
                                 out_name = img_meta['ori_filename']
                                 out_name_with_cls = out_name.replace('.jpg','_class%s.npy' % cls)
@@ -181,8 +186,16 @@ def single_gpu_test(model,
                 # TODO: adapt samples_per_gpu > 1.
                 # only samples_per_gpu=1 valid now
                 # This is to correct from training data loader mixed in with test
+
+                # Look at filename:
+                filename = data['img_metas'][0].data[0][0]['ori_filename']
+                target_label = filename.split("class")
+                # Grab the target class num  (1-20, not 0 idxs)
+                target_label = int(target_label[1].strip(".npy"))
+
+
                 seg_pred = result[0][0][0]
-                result = dataset.pre_eval(seg_pred, indices=batch_indices)
+                result = rgbs_pre_eval(seg_pred, indices=batch_indices, target_label)
                 results.extend(result)
             else:
                 results.extend(result)

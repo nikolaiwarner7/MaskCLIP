@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument('--config', default='configs/maskclip/maskclip_r50_512x512_voc12aug_20.py', help='test config file path')
     parser.add_argument('--checkpoint', default='pretrain/RN50_clip_backbone.pth', help='checkpoint file')
     parser.add_argument(
-        '--work-dir',
+        '--work-dir', 
         help=('if specified, the evaluation metric results will be dumped'
               'into the directory as json'))
     parser.add_argument(

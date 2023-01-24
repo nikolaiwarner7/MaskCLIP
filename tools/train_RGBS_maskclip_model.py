@@ -31,7 +31,7 @@ def parse_args():
     # Switch to use deeplab backbone
     #parser.add_argument('--config', default='configs/deeplabv3plus/deeplabv3plus_r50-d8_512x512_40k_voc12aug.py', help='test config file path')
     parser.add_argument('--config', default='configs/maskclip_plus/zero_shot/maskclip_plus_r50_deeplabv2_r101-d8_512x512_20k_voc12aug_20.py', help='test config file path')
-    parser.add_argument('--work-dir', help='the dir to save logs and models')
+    parser.add_argument('--work-dir', default = 'test_outs/', help='the dir to save logs and models')
     parser.add_argument(
         '--load-from', help='the checkpoint file to load weights from')
     parser.add_argument(
@@ -244,6 +244,30 @@ def main():
     # Set batch size to 2 to allow batch norm in ASPP decoder head to work
     cfg.data['samples_per_gpu'] = 2
 
+    ## Remove reduce zero label for our binary mask, class agnostic training  
+    # Otherwise produces bug with 0/255 rolled back labels
+    cfg.data.train['pipeline'][1]['reduce_zero_label'] = False
+    # Find where to do so for val too
+
+    # Change hook to tensorboard
+    cfg.log_config = dict(
+    interval=50,
+    hooks=[
+        dict(type='TextLoggerHook'),
+        dict(type='TensorboardLoggerHook')
+    ])
+
+    ## Add in loading annotatio[15, 16, 17, 18, 19]
+    cfg.data.val['pipeline'].append({})
+    cfg.data.val['pipeline'][2] = cfg.data.val['pipeline'][1]
+    cfg.data.val['pipeline'][1] =\
+        {'type': 'LoadAnnotations', 'reduce_zero_label': False, 'suppress_labels': []}
+
+    ## Make sure it collects gt semantic seg
+    cfg.data.val['pipeline'][2]['transforms'][3]['keys'].append('gt_semantic_seg')
+    cfg.data.val['pipeline'][2]['transforms'][4]['keys'].append('gt_semantic_seg')
+
+
     datasets = [build_dataset(cfg.data.train)]
     # More changes to switch to RGB-S data
     datasets[0].img_suffix = '.npy'
@@ -271,6 +295,9 @@ def main():
     model.backbone.stem[0] = nn.Conv2d(4, 32, kernel_size=(3,3), stride=(2,2), padding=(1,1))
     model.to(torch.device('cuda'))
 
+    # For debugging call validation interval sooner
+    cfg.checkpoint_config.interval = 100
+    cfg.evaluation.interval = 100
 
     train_segmentor(
         model,
