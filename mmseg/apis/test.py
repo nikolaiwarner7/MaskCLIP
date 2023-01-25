@@ -11,7 +11,7 @@ from mmcv.engine import collect_results_cpu, collect_results_gpu
 from mmcv.image import tensor2imgs
 from mmcv.runner import get_dist_info
 from nwarner_common_utils import CLASS_SPLITS, SUBSAMPLE, OUT_ANNOTATION_DIR, OUT_RGB_S_DIR, SPLIT
-from nwarner_common_utils import PRODUCING_MASKCLIP_DATA
+from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, VISUALIZING_TRAINED_MODEL
 
 
 import matplotlib.pyplot as plt
@@ -47,7 +47,8 @@ def single_gpu_test(model,
                     pre_eval=False,
                     format_only=False,
                     format_args={},
-                    produce_maskclip_maps=False):
+                    produce_maskclip_maps=False,
+                    maskclip_clip_fair_eval=False):
     """Test with single GPU by progressive mode.
 
     Args:
@@ -97,20 +98,40 @@ def single_gpu_test(model,
     # To debug multichannel model, use a subsample
 
     for batch_indices, data in zip(loader_indices, data_loader):
+        batch_size = len(batch_indices)
         if batch_indices[0] < SUBSAMPLE:
+            result = None
             with torch.no_grad():
-                if not PRODUCING_MASKCLIP_DATA:
+                # Not sure why but it is loading data containers differntly depending on whether:
+                # Produce data, train, evaluate
+                # Depends if it is train or val set, too
+                if VISUALIZING_TRAINED_MODEL:
+                    # We do need grad for vis train
+                    data['img'] = data['img'][0].cuda()
+                    #data['gt_semantic_seg'] = data['gt_semantic_seg'].data
+                    data['img_metas'] = data['img_metas'][0].data[0]
+                elif not PRODUCING_MASKCLIP_DATA and not maskclip_clip_fair_eval:
                     data['img'] = data['img'][0]
                     data['gt_semantic_seg'] = data['gt_semantic_seg'][0]
-                result = model(return_loss=False, **data)
+                if not maskclip_clip_fair_eval:
+                    result = model(return_loss=False, **data)
 
             if show or out_dir:
                 # Allows access to train data in test format
-                img_tensor = data['img'].data[0]
-                img_metas = data['img_metas'].data[0]
-                imgs = tensor2imgs(img_tensor, **img_metas[0]['img_norm_cfg'])
-                assert len(imgs) == len(img_metas)
-
+                if VISUALIZING_TRAINED_MODEL:
+                    img_tensor = data['img']
+                    img_metas = data['img_metas']
+                else:
+                    img_tensor = data['img'].data[0]
+                    img_metas = data['img_metas'].data[0]
+                if not VISUALIZING_TRAINED_MODEL:
+                # We dont have 3D RGB images to convert to imgs 
+                    imgs = tensor2imgs(img_tensor, **img_metas[0]['img_norm_cfg'])
+                    assert len(imgs) == len(img_metas)
+                elif VISUALIZING_TRAINED_MODEL:
+                    # Make the 3D img part for visualizing
+                    img_tensor = img_tensor.permute(0,2,3,1)
+                    imgs = img_tensor[:,:,:,:-1].detach().cpu().numpy()
                 for img, img_meta in zip(imgs, img_metas):
                     h, w, _ = img_meta['img_shape']
                     img_show = img[:h, :w, :]
@@ -134,6 +155,10 @@ def single_gpu_test(model,
                         # 2) Create a list of GT present classes
                         gt_present_classes = [cls for cls in gt_classes if cls in CLASS_SPLITS[SPLIT]]
 
+                        cls_specific_gt_seg = None
+                        img_with_cls_logit = None
+                        cls_logit = None
+                        norm_cls_logit = None
                         # 3) Loop through said list
                         for cls in gt_present_classes:
                             if out_dir:
@@ -176,35 +201,110 @@ def single_gpu_test(model,
                                     produce_maskclip_maps_class_id=cls,
                                     )
 
+                    elif maskclip_clip_fair_eval:
+                        # 1) Find the GT classes from img_metas
+                        #gt_annotations = data['gt_semantic_seg'].data[0]
+                        gt_raw_annotation = data['raw_gt_seg'][0]
+                        # Pre-padded from dataloader transforms step-> want raw
+                        gt_classes = np.unique(gt_raw_annotation).tolist()
+                        # Remove background, ignore (0,255)
+                        if 0 in gt_classes:
+                            gt_classes.remove(0)
+                        if 255 in gt_classes:
+                            gt_classes.remove(255)
+
+
+                        # 2) Create a list of GT present classes
+                        gt_present_classes = [cls for cls in gt_classes if cls in CLASS_SPLITS[SPLIT]]
+
+
+                        ##DEBUGGING:
+                        gt_present_classes = [5]
+
+                        cls_specific_gt_seg = None
+                        img_with_cls_logit = None
+                        cls_logit = None
+                        norm_cls_logit = None
+                        # 3) Loop through said list
+                        for cls in gt_present_classes:
+                            if out_dir:
+                                # 4) Grab the corresponding class-specific segmentation
+                                cls_specific_gt_seg = gt_raw_annotation == cls
+                                cls_specific_gt_seg = torch.tensor(cls_specific_gt_seg.numpy().astype(int))
+
+                                # 0 indexing for class (cls)
+                                cls_logit = result[0][1][0, cls-1].detach().cpu()
+                                cls_logit = np.array(cls_logit)
+
+
+                                ## Normalize class logits:
+                                # From 0-1 for preproc later
+                                norm_cls_logit = (cls_logit - np.min(cls_logit)) / (np.max(cls_logit)-np.min(cls_logit))
+
+                                # Combine with full size image
+                                img_with_cls_logit = np.concatenate((img_show, np.expand_dims(norm_cls_logit, -1)), axis=-1)
+
+                                #2DO: Normalize data here first
+                                data['img'] = img_with_cls_logit
+                                data['gt_semantic_seg'] = cls_specific_gt_seg
+                                #data['img_metas']
+                                result = model(return_loss=False, **data)
+
+                    if VISUALIZING_TRAINED_MODEL:
+                        # Get filename with class
+                        filename = data['img_metas'][0]['ori_filename']
+                        filename = filename.split(".npy")[0]
+
+                        # Save the original unscaled image
+                        test_img = img_show
+                        test_img = (test_img -np.min(test_img))/ (np.max(test_img)-np.min(test_img))
+                        plt.imsave(out_dir+filename+'_input_img.png', test_img)
+
+                        # Save the seg prediction
+                        test_out = result[0][0][0]
+                        plt.imsave(out_dir+filename+'_pred_seg.png', test_out)
+
+                        # Save the GT segmentation
+                        gt_seg = data['gt_semantic_seg'][0]
+                        gt_seg = gt_seg.detach().cpu().numpy()
+                        plt.imsave(out_dir+filename+'_gt_seg.png', gt_seg[0,0,:,:]==1)
+
                 if efficient_test:
                     result = [np2tmp(_, tmpdir='.efficient_test') for _ in result]
 
             if format_only:
                 result = dataset.format_results(
                     result, indices=batch_indices, **format_args)
-            if pre_eval:
-                # TODO: adapt samples_per_gpu > 1.
-                # only samples_per_gpu=1 valid now
-                # This is to correct from training data loader mixed in with test
+            # pre eval shouldnt run while producing data
+            if not PRODUCING_MASKCLIP_DATA:
+                if pre_eval:
+                    # TODO: adapt samples_per_gpu > 1.
+                    # only samples_per_gpu=1 valid now
+                    # This is to correct from training data loader mixed in with test
 
-                # Look at filename:
-                filename = data['img_metas'][0].data[0][0]['ori_filename']
-                target_label = filename.split("class")
-                # Grab the target class num  (1-20, not 0 idxs)
-                target_label = int(target_label[1].strip(".npy"))
+                    # Look at filename:
+                    if VISUALIZING_TRAINED_MODEL:
+                        filename = data['img_metas'][0]['ori_filename']
+                    else:
+                        filename = data['img_metas'][0].data[0][0]['ori_filename']
+                    target_label = filename.split("class")
+                    # Grab the target class num  (1-20, not 0 idxs)
+                    target_label = int(target_label[1].strip(".npy"))
 
 
-                seg_pred = result[0][0][0]
-                result = dataset.rgbs_pre_eval(seg_pred, indices=batch_indices, class_num=target_label)
-                results.extend(result)
-            else:
-                results.extend(result)
+                    seg_pred = result[0][0][0]
+                    result = dataset.rgbs_pre_eval(seg_pred, indices=batch_indices, class_num=target_label)
+                    results.extend(result)
+                else :
+                    results.extend(result)
 
-            batch_size = len(result)
+                batch_size = len(result)
             for _ in range(batch_size):
                 prog_bar.update()
-
-    return results
+    if not PRODUCING_MASKCLIP_DATA:
+        return results
+    else:
+        return None
 
 
 def multi_gpu_test(model,

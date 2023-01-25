@@ -9,10 +9,9 @@ import sys
 #sys.path.append('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP')
 #sys.path.append('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP/mmseg')
 
-from nwarner_common_utils import PRODUCE_MASKCLIP_MAPS_CONFIG
+from nwarner_common_utils import PRODUCE_MASKCLIP_MAPS_CONFIG, OUT_ANNOTATION_DIR, OUT_RGB_S_DIR, DELETE_DATA
 sys.path.append('/root/MaskCLIP/')
 sys.path.append('/root/MaskCLIP/mmseg')
-
 
 import mmcv
 import torch
@@ -128,6 +127,13 @@ def parse_args():
 
 
 def main():
+    if DELETE_DATA:
+       # Delete existing files in folder and make folder again
+       shutil.rmtree(OUT_ANNOTATION_DIR)
+       os.mkdir(OUT_ANNOTATION_DIR)
+       shutil.rmtree(OUT_RGB_S_DIR)
+       os.mkdir(OUT_RGB_S_DIR)
+
     args = parse_args()
     assert args.out or args.eval or args.format_only or args.show \
         or args.show_dir or args.vis_output, \
@@ -191,11 +197,19 @@ def main():
     # build the dataloader
     # TODO: support multiple images per gpu (only minor changes are needed)
     
+
+
     #cfg.data.train['gt_raw_seg'] = True
     if PRODUCE_MASKCLIP_MAPS_CONFIG == 'train':
         # Was causing an issue in dataloader loading size, investigate shortly
         #cfg.data.train['pipeline'].pop(3) # remove random crop
         cfg.data.train['pipeline'].pop(5) # remove distortion
+
+        # We're creating raw samples so don't want any aug at this point
+        cfg.data.train['pipeline'][2] = {'type': 'Resize', 'img_scale': (512, 512), 'ratio_range': (1.0, 1.0)}
+        cfg.data.train['pipeline'][3] = {'type': 'RandomCrop', 'crop_size': (512, 512), 'cat_max_ratio': 1.0}
+        cfg.data.train['pipeline'][4] = {'type': 'RandomFlip', 'prob': 0.0}
+
         # Collect the raw gt seg to make available during inference
         # Need original meta-keys otherwise throws key errors
         #cfg.data.train['pipeline'][6] = {'type': 'Collect', 'keys': ['img', 'gt_semantic_seg', 'raw_gt_seg'], \
@@ -206,8 +220,14 @@ def main():
     elif PRODUCE_MASKCLIP_MAPS_CONFIG == 'val':
         # We want the same processing and access to gt_segs for validation 
         cfg.data.train['pipeline'].pop(5) # remove distortion
+        cfg.data.train['pipeline'][2] = {'type': 'Resize', 'img_scale': (512, 512), 'ratio_range': (1.0, 1.0)}
+        cfg.data.train['pipeline'][3] = {'type': 'RandomCrop', 'crop_size': (512, 512), 'cat_max_ratio': 1.0}
+        cfg.data.train['pipeline'][4] = {'type': 'RandomFlip', 'prob': 0.0}
         cfg.data.val.pipeline = cfg.data.train.pipeline
         dataset = build_dataset(cfg.data.val)
+
+    # Don't perform eval when producing data
+    args.eval = ''
 
     data_loader = build_dataloader(
         dataset,
@@ -338,3 +358,6 @@ if __name__ == '__main__':
     #os.chdir(os.path.join(os.getcwd(),'mmseg'))
     #os.chdir('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP')
     main()
+    # Update annotations file from this data directory
+    import subprocess
+    subprocess.call("/root/MaskCLIP/tools/produce_maskclip_VOC_maps.py", shell=True)

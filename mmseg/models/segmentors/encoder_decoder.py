@@ -9,6 +9,7 @@ from .. import builder
 from ..builder import SEGMENTORS
 from .base import BaseSegmentor
 
+from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, VISUALIZING_TRAINED_MODEL
 
 @SEGMENTORS.register_module()
 class EncoderDecoder(BaseSegmentor):
@@ -244,9 +245,14 @@ class EncoderDecoder(BaseSegmentor):
 
         assert self.test_cfg.mode in ['slide', 'whole']
         # With loader fix
-        img_meta = img_meta[0]
-        ori_shape = img_meta[0]['ori_shape']
-        assert all(_['ori_shape'] == ori_shape for _ in img_meta)
+        if not PRODUCING_MASKCLIP_DATA:
+            img_meta = img_meta[0]
+        if VISUALIZING_TRAINED_MODEL:
+            img_meta = [img_meta]
+        else:           
+            ori_shape = img_meta[0]['ori_shape']
+        # remove for now fdoesnt look crit
+        #assert all(_['ori_shape'] == ori_shape for _ in img_meta)
         if self.test_cfg.mode == 'slide':
             seg_logit = self.slide_inference(img, img_meta, rescale)
         else:

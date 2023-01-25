@@ -2,7 +2,7 @@
 import collections
 
 from mmcv.utils import build_from_cfg
-from nwarner_common_utils import PRODUCING_MASKCLIP_DATA
+from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, EVALUATE_USING_CLIP
 
 from ..builder import PIPELINES
 
@@ -39,7 +39,7 @@ class Compose(object):
         # May need to be specific to produce-maskclip-maps script, with flag
         # For the index 7 bit
         # 2DO: add flag so this doesn't get called during actual training job
-        if PRODUCING_MASKCLIP_DATA:
+        if PRODUCING_MASKCLIP_DATA or EVALUATE_USING_CLIP:
             if 'raw_gt_seg' not in self.transforms[8].keys:
                 self.transforms[8].keys.append('raw_gt_seg')
 
@@ -50,6 +50,8 @@ class Compose(object):
             # After loading annotation, get raw (unpadded) and store
             if i == 1 and PRODUCING_MASKCLIP_DATA:
                 data['raw_gt_seg'] = data['gt_semantic_seg'].copy()
+            elif i==1 and EVALUATE_USING_CLIP:
+                data['raw_gt_seg'] = data['gt_semantic_seg'].copy()                
         return data
 
     def __repr__(self):

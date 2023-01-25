@@ -5,10 +5,15 @@ CLASS_SPLITS = {'seen': list(range(1,15+1)),
 
 # Parameters for producing Maskclip VOC maps loaded in mmseg/apis/single_gpu test test.py
 PRODUCING_MASKCLIP_DATA = False  # Fixed flag for dataloader to store raw segs, only run when producing data
+VISUALIZING_TRAINED_MODEL = False
+EVALUATE_USING_CLIP = True
+
+DELETE_DATA = False
 
 PRODUCE_MASKCLIP_MAPS_CONFIG = 'val' # 'train' or 'val'
-SUBSAMPLE = 1400 # Number of samples to take for producing our maskclip-heatmap dataset
-# 1464 in train, 
+SUBSAMPLE = 2000 # Number of samples to take for producing our maskclip-heatmap dataset
+# 1464 in train, 1449 in val
+# Set subsample >>, then it runs whole thing
 
 # Automatically handle split and subdirectories accordingly
 if PRODUCE_MASKCLIP_MAPS_CONFIG == 'val':

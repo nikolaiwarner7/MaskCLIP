@@ -167,7 +167,7 @@ log_config = dict(
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
 load_from = None
-resume_from = None
+resume_from = 'test_outs/latest.pth'
 workflow = [('train', 1)]
 cudnn_benchmark = True
 optimizer = dict(type='SGD', lr=0.01, momentum=0.9, weight_decay=0.0005)
@@ -180,4 +180,4 @@ suppress_labels = [15, 16, 17, 18, 19]
 find_unused_parameters = True
 work_dir = 'test_outs/'
 gpu_ids = range(0, 1)
-auto_resume = False
+auto_resume = True

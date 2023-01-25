@@ -2,6 +2,7 @@
 import random
 import warnings
 
+import os
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -167,7 +168,8 @@ def train_segmentor(model,
         resume_from = find_latest_checkpoint(cfg.work_dir)
         if resume_from is not None:
             cfg.resume_from = resume_from
-    if cfg.resume_from:
+    # Only load if checkpoint exists
+    if cfg.resume_from and os.path.exists(cfg.resume_from):
         runner.resume(cfg.resume_from)
     elif cfg.load_from:
         runner.load_checkpoint(cfg.load_from)

@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument(
         '--load-from', help='the checkpoint file to load weights from')
     parser.add_argument(
-        '--resume-from', help='the checkpoint file to resume from')
+        '--resume-from', default='test_outs/latest.pth', help='the checkpoint file to resume from')
     parser.add_argument(
         '--no-validate',
         action='store_true',
@@ -87,6 +87,7 @@ def parse_args():
     parser.add_argument(
         '--auto-resume',
         action='store_true',
+        default = True, # Resume training from last point
         help='resume from the latest checkpoint automatically.')
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
@@ -205,7 +206,7 @@ def main():
         train_cfg=cfg.get('train_cfg'),
         test_cfg=cfg.get('test_cfg'))
     model.init_weights()
-
+ 
     # SyncBN is not support for DP
     if not distributed:
         warnings.warn(
@@ -242,13 +243,17 @@ def main():
         {'type': 'Normalize', 'mean': [123.675, 116.28, 103.53, 0.5], 'std': [58.395, 57.12, 57.375, 0.5], 'to_rgb': True}
 
     # Set batch size to 2 to allow batch norm in ASPP decoder head to work
-    cfg.data['samples_per_gpu'] = 2
+    cfg.data['samples_per_gpu'] = 12
 
     ## Remove reduce zero label for our binary mask, class agnostic training  
     # Otherwise produces bug with 0/255 rolled back labels
     cfg.data.train['pipeline'][1]['reduce_zero_label'] = False
     # Find where to do so for val too
-
+    
+    # Remove some augmentations
+    #cfg.data.train['pipeline'][2] = {'type': 'Resize', 'img_scale': (512, 512), 'ratio_range': (1.0, 1.0)}
+    #cfg.data.train['pipeline'][3] = {'type': 'RandomCrop', 'crop_size': (512, 512), 'cat_max_ratio': 1.0}
+    #cfg.data.train['pipeline'][4] = {'type': 'RandomFlip', 'prob': 0.0}
     # Change hook to tensorboard
     cfg.log_config = dict(
     interval=50,
@@ -267,13 +272,19 @@ def main():
     cfg.data.val['pipeline'][2]['transforms'][3]['keys'].append('gt_semantic_seg')
     cfg.data.val['pipeline'][2]['transforms'][4]['keys'].append('gt_semantic_seg')
 
+    # Remove some augmentationsfrom val pipeline
+    #cfg.data.val['pipeline'][2]['transforms'][1] = {'type': 'RandomFlip', 'prob': 0.0}
+    #cfg.data.val['pipeline'][2]['transforms'][2] = {'type': 'Resize', 'img_scale': (512, 512), 'ratio_range': (1.0, 1.0)}
+    
 
     datasets = [build_dataset(cfg.data.train)]
     # More changes to switch to RGB-S data
     datasets[0].img_suffix = '.npy'
     datasets[0].seg_map_suffix = '.npy'
 
-
+    # Set the number of training steps (iterations)
+    cfg.runner['max_iters'] = 3e5
+    
     if len(cfg.workflow) == 2:
         val_dataset = copy.deepcopy(cfg.data.val)
         val_dataset.pipeline = cfg.data.train.pipeline
@@ -299,6 +310,8 @@ def main():
     EVAL_INTERVAL = 2000
     cfg.checkpoint_config.interval = EVAL_INTERVAL
     cfg.evaluation.interval = EVAL_INTERVAL
+
+    cfg.optimizer['lr'] = 4.8e-3
 
     train_segmentor(
         model,
