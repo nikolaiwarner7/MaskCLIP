@@ -128,3 +128,8 @@ corrupt.sh
 run.sh
 configs/rename.py
 demo/maskclip_demo.ipynb
+
+# Output vis
+output/trained_model_vis
+
+tests/data
