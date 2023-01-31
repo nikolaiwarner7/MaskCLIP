@@ -234,6 +234,8 @@ def single_gpu_test(model, # the RGB model
                         CLIP_outputs = CLIP_model(**CLIP_inputs)
                         logits_per_image = CLIP_outputs.logits_per_image
                         potential_present_idxs = np.where(logits_per_image>CLIP_SIM_THRESHOLD_PRESENT)[1].tolist()
+                        if not potential_present_idxs:
+                            potential_present_idxs = [np.argmax(logits_per_image.detach().cpu().numpy())]
                         # For human reference: 
                         potential_classes = [VOC_class_labels[i] for i in potential_present_idxs]
 
@@ -307,10 +309,6 @@ def single_gpu_test(model, # the RGB model
             else :
                 results.extend(result)
 
-            batch_size = len(result)
-            for _ in range(batch_size):
-                prog_bar.update()
-
 
 
             if format_only:
@@ -346,6 +344,7 @@ def single_gpu_test(model, # the RGB model
             for _ in range(batch_size):
                 prog_bar.update()
     if not PRODUCING_MASKCLIP_DATA:
+        dataset.evaluate(results)
         return results
     else:
         return None

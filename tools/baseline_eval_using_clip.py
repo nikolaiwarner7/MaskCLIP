@@ -364,6 +364,8 @@ def main():
             produce_maskclip_maps=False,
             maskclip_clip_fair_eval=True,
             rgbs_maskclip_model=pretrained_rgbs_model)
+        
+        print("done")
     else:
         model = MMDistributedDataParallel(
             model.cuda(),
