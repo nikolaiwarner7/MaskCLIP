@@ -7,6 +7,7 @@ CLASS_SPLITS = {'seen': list(range(1,15+1)),
 PRODUCING_MASKCLIP_DATA = False  # Fixed flag for dataloader to store raw segs, only run when producing data
 VISUALIZING_TRAINED_MODEL = False
 EVALUATE_USING_CLIP = True
+CLIP_SIM_THRESHOLD_PRESENT = 24.5 # Experiment with
 
 DELETE_DATA = False
 

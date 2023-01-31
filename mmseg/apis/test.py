@@ -12,7 +12,11 @@ from mmcv.image import tensor2imgs
 from mmcv.runner import get_dist_info
 from nwarner_common_utils import CLASS_SPLITS, SUBSAMPLE, OUT_ANNOTATION_DIR, OUT_RGB_S_DIR, SPLIT
 from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, VISUALIZING_TRAINED_MODEL
+from nwarner_common_utils import CLIP_SIM_THRESHOLD_PRESENT
+from PIL import Image
+import requests
 
+from transformers import CLIPProcessor, CLIPModel
 
 import matplotlib.pyplot as plt
 import math
@@ -96,7 +100,12 @@ def single_gpu_test(model, # the RGB model
     # data_fetcher -> collate_fn(dataset[index]) -> data_sample
     # we use batch_sampler to get correct data idx
     loader_indices = data_loader.batch_sampler
-    
+
+    # To do simple CLIP eval to detect present likely classes    
+    CLIP_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    CLIP_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")    
+    VOC_class_labels = list(dataset.CLASSES)
+    VOC_class_labels.pop(0) # remove background
     # To debug multichannel model, use a subsample
 
     for batch_indices, data in zip(loader_indices, data_loader):
@@ -207,37 +216,22 @@ def single_gpu_test(model, # the RGB model
                         # It is BS=1, NUM_CLASSES=20, SP_DIM, SP_DIM
                         maskclip_logits = result[0][1]
 
+                        original_rgb_img = data['img'].data[0]
+                        CLIP_input_img = original_rgb_img.permute(0, 2, 3, 1)[0]
 
 
+                        # Finding GT present class list using prompts:
+                        CLIP_inputs = CLIP_processor(text= VOC_class_labels, images=CLIP_input_img, return_tensors="pt", padding=True)
+                        CLIP_outputs = CLIP_model(**CLIP_inputs)
+                        logits_per_image = CLIP_outputs.logits_per_image
+                        potential_present_idxs = np.where(logits_per_image>CLIP_SIM_THRESHOLD_PRESENT)[1].tolist()
+                        # For human reference: 
+                        potential_classes = [VOC_class_labels[i] for i in potential_present_idxs]
 
-                        # 1) Find the GT classes from img_metas
-                        #gt_annotations = data['gt_semantic_seg'].data[0]
-                        gt_raw_annotation = data['raw_gt_seg'][0]
-                        # Pre-padded from dataloader transforms step-> want raw
-                        gt_classes = np.unique(gt_raw_annotation).tolist()
-                        # Remove background, ignore (0,255)
-                        if 0 in gt_classes:
-                            gt_classes.remove(0)
-                        if 255 in gt_classes:
-                            gt_classes.remove(255)
-
-
-                        # 2) Create a list of GT present classes
-                        gt_present_classes = [cls for cls in gt_classes if cls in CLASS_SPLITS[SPLIT]]
-
-
-                        ##DEBUGGING:
-                        # Lets say CLIP decodes class 5 is present
-                        gt_present_classes = [5]
-
-                        cls_specific_gt_seg = None
-                        img_with_cls_logit = None
-                        cls_logit = None
-                        norm_cls_logit = None
                         # 3) Loop through said list
-                        for cls in gt_present_classes:
-                            # Prepare data for submission to 
-                            original_rgb_img = data['img'].data[0]
+                        predicted_segs = []
+                        for cls in potential_present_idxs:
+                            # Grab the corresponding maskclip heatmap
                             cls_heatmap = maskclip_logits[0,cls]
                             padded_hmap = mmcv.impad(cls_heatmap.detach().cpu().numpy(),\
                                  shape=(512,512), pad_val=0)
@@ -257,6 +251,9 @@ def single_gpu_test(model, # the RGB model
                             result = rgbs_maskclip_model(return_loss=False, **data)
 
                             predicted_cls_seg = result[0][0][0]
+                            predicted_segs.append((cls, predicted_cls_seg))
+
+                        pass
 
                     if VISUALIZING_TRAINED_MODEL:
                         # Get filename with class
