@@ -133,3 +133,8 @@ demo/maskclip_demo.ipynb
 output/trained_model_vis
 
 tests/data
+test_outs/latest.pth
+
+# Big files
+Miniconda3-latest*
+VOCtrainval_11*

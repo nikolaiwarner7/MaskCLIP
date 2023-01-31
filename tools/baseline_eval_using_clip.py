@@ -244,7 +244,9 @@ def main():
 
     # build the model and load checkpoint
     cfg.model.train_cfg = None
+    model = build_segmentor(cfg.model, test_cfg=cfg.get('test_cfg'))
 
+    # Then look at the rgbs params
     # Change model parameters to run deeplabv3 base (not maskclip + version)
     RGBS_NUM_CLASSES = 2 # background + foreground
     # Testing 21 to see if it fixes it
@@ -270,16 +272,22 @@ def main():
 
 
 
-    model = build_segmentor(cfg.model, test_cfg=cfg.get('test_cfg'))
+
+
+    pretrained_rgbs_model = build_segmentor(cfg.model, test_cfg=cfg.get('test_cfg'))
+
+
     fp16_cfg = cfg.get('fp16', None)
     if fp16_cfg is not None:
         wrap_fp16_model(model)
 
     # Update model to accept 4CH inputs
-    model.backbone.stem[0] = nn.Conv2d(4, 32, kernel_size=(3,3), stride=(2,2), padding=(1,1))
-    model.to(torch.device('cuda'))
+    # For the pretrained rgbs model, and load weights
+    pretrained_rgbs_model.backbone.stem[0] = nn.Conv2d(4, 32, kernel_size=(3,3), stride=(2,2), padding=(1,1))
+    pretrained_rgbs_model.to(torch.device('cuda'))
 
-    checkpoint = load_checkpoint(model, args.load_from, map_location='cpu')
+    checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
+    checkpoint = load_checkpoint(pretrained_rgbs_model, args.load_from, map_location='cpu')
     
     if 'CLASSES' in checkpoint.get('meta', {}):
         model.CLASSES = checkpoint['meta']['CLASSES']
@@ -322,6 +330,7 @@ def main():
 
     if not distributed:
         model = MMDataParallel(model, device_ids=[0])
+        pretrained_rgbs_model = MMDataParallel(pretrained_rgbs_model, device_ids=[0])
 
         if args.vis_output:
             config_name = osp.basename(work_dir)
@@ -353,7 +362,8 @@ def main():
             # To change imsave to the individual tensor entries for 4D maps
             # +2DO: check the scaling of the logits as well
             produce_maskclip_maps=False,
-            maskclip_clip_fair_eval=True)
+            maskclip_clip_fair_eval=True,
+            rgbs_maskclip_model=pretrained_rgbs_model)
     else:
         model = MMDistributedDataParallel(
             model.cuda(),

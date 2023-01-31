@@ -38,7 +38,7 @@ def np2tmp(array, temp_file_name=None, tmpdir=None):
     return temp_file_name
 
 
-def single_gpu_test(model,
+def single_gpu_test(model, # the RGB model
                     data_loader,
                     show=False,
                     out_dir=None,
@@ -48,7 +48,8 @@ def single_gpu_test(model,
                     format_only=False,
                     format_args={},
                     produce_maskclip_maps=False,
-                    maskclip_clip_fair_eval=False):
+                    maskclip_clip_fair_eval=False,
+                    rgbs_maskclip_model=None):
     """Test with single GPU by progressive mode.
 
     Args:
@@ -85,6 +86,7 @@ def single_gpu_test(model,
         'exclusive, only one of them could be true .'
 
     model.eval()
+    rgbs_maskclip_model.eval()
     results = []
     dataset = data_loader.dataset
     prog_bar = mmcv.ProgressBar(len(dataset))
@@ -113,8 +115,7 @@ def single_gpu_test(model,
                 elif not PRODUCING_MASKCLIP_DATA and not maskclip_clip_fair_eval:
                     data['img'] = data['img'][0]
                     data['gt_semantic_seg'] = data['gt_semantic_seg'][0]
-                if not maskclip_clip_fair_eval:
-                    result = model(return_loss=False, **data)
+                result = model(return_loss=False, **data)
 
             if show or out_dir:
                 # Allows access to train data in test format
@@ -202,6 +203,13 @@ def single_gpu_test(model,
                                     )
 
                     elif maskclip_clip_fair_eval:
+                        # Get the predicted maskclip logits
+                        # It is BS=1, NUM_CLASSES=20, SP_DIM, SP_DIM
+                        maskclip_logits = result[0][1]
+
+
+
+
                         # 1) Find the GT classes from img_metas
                         #gt_annotations = data['gt_semantic_seg'].data[0]
                         gt_raw_annotation = data['raw_gt_seg'][0]
@@ -219,6 +227,7 @@ def single_gpu_test(model,
 
 
                         ##DEBUGGING:
+                        # Lets say CLIP decodes class 5 is present
                         gt_present_classes = [5]
 
                         cls_specific_gt_seg = None
@@ -227,28 +236,27 @@ def single_gpu_test(model,
                         norm_cls_logit = None
                         # 3) Loop through said list
                         for cls in gt_present_classes:
-                            if out_dir:
-                                # 4) Grab the corresponding class-specific segmentation
-                                cls_specific_gt_seg = gt_raw_annotation == cls
-                                cls_specific_gt_seg = torch.tensor(cls_specific_gt_seg.numpy().astype(int))
+                            # Prepare data for submission to 
+                            original_rgb_img = data['img'].data[0]
+                            cls_heatmap = maskclip_logits[0,cls]
+                            padded_hmap = mmcv.impad(cls_heatmap.detach().cpu().numpy(),\
+                                 shape=(512,512), pad_val=0)
+                            # Ideally heatmaps are between 0-1 
+                            #padded_normalized_hmap = mmcv.image.imnormalize_(padded_hmap\
+                            #    , mean=np.array(0.5), std=np.array(0.5), to_rgb=False)
+                            # Just min max normalize
+                            padded_normalized_hmap = (padded_hmap - np.min(padded_hmap))/\
+                                (np.max(padded_hmap)-np.min(padded_hmap))
 
-                                # 0 indexing for class (cls)
-                                cls_logit = result[0][1][0, cls-1].detach().cpu()
-                                cls_logit = np.array(cls_logit)
+                            # Combine with full size image
+                            img_with_cls_logit = np.concatenate((original_rgb_img, np.expand_dims(padded_normalized_hmap, (0,1))), axis=1)
 
+                            #Try, now substitute this for the data batch in the rgbs model
+                            data['img'] = torch.tensor(img_with_cls_logit).cuda()
+                            #data['gt_semantic_seg'] = cls_specific_gt_seg
+                            result = rgbs_maskclip_model(return_loss=False, **data)
 
-                                ## Normalize class logits:
-                                # From 0-1 for preproc later
-                                norm_cls_logit = (cls_logit - np.min(cls_logit)) / (np.max(cls_logit)-np.min(cls_logit))
-
-                                # Combine with full size image
-                                img_with_cls_logit = np.concatenate((img_show, np.expand_dims(norm_cls_logit, -1)), axis=-1)
-
-                                #2DO: Normalize data here first
-                                data['img'] = img_with_cls_logit
-                                data['gt_semantic_seg'] = cls_specific_gt_seg
-                                #data['img_metas']
-                                result = model(return_loss=False, **data)
+                            predicted_cls_seg = result[0][0][0]
 
                     if VISUALIZING_TRAINED_MODEL:
                         # Get filename with class

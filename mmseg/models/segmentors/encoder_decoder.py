@@ -9,7 +9,7 @@ from .. import builder
 from ..builder import SEGMENTORS
 from .base import BaseSegmentor
 
-from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, VISUALIZING_TRAINED_MODEL
+from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, VISUALIZING_TRAINED_MODEL, EVALUATE_USING_CLIP
 
 @SEGMENTORS.register_module()
 class EncoderDecoder(BaseSegmentor):
@@ -247,7 +247,7 @@ class EncoderDecoder(BaseSegmentor):
         # With loader fix
         if not PRODUCING_MASKCLIP_DATA:
             img_meta = img_meta[0]
-        if VISUALIZING_TRAINED_MODEL:
+        if VISUALIZING_TRAINED_MODEL or EVALUATE_USING_CLIP:
             img_meta = [img_meta]
         else:           
             ori_shape = img_meta[0]['ori_shape']
