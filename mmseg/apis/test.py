@@ -90,7 +90,8 @@ def single_gpu_test(model, # the RGB model
         'exclusive, only one of them could be true .'
 
     model.eval()
-    rgbs_maskclip_model.eval()
+    if rgbs_maskclip_model:
+        rgbs_maskclip_model.eval()
     results = []
     dataset = data_loader.dataset
     prog_bar = mmcv.ProgressBar(len(dataset))
@@ -217,7 +218,15 @@ def single_gpu_test(model, # the RGB model
                         maskclip_logits = result[0][1]
 
                         original_rgb_img = data['img'].data[0]
-                        CLIP_input_img = original_rgb_img.permute(0, 2, 3, 1)[0]
+
+                        h, w, _ = img_meta['img_shape']
+                        img_show = img[:h, :w, :]
+
+                        ori_h, ori_w = img_meta['ori_shape'][:-1]
+                        #Img show is resized appropriately without padding
+                        img_show = mmcv.imresize(img_show, (ori_w, ori_h))
+                        CLIP_input_img = img_show
+                        #CLIP_input_img = original_rgb_img.permute(0, 2, 3, 1)[0]
 
 
                         # Finding GT present class list using prompts:
@@ -228,33 +237,39 @@ def single_gpu_test(model, # the RGB model
                         # For human reference: 
                         potential_classes = [VOC_class_labels[i] for i in potential_present_idxs]
 
-                        # 3) Loop through said list
+                        # 3) Loop through said list8
+                        # Force seg list for debugging
                         predicted_segs = []
                         for cls in potential_present_idxs:
                             # Grab the corresponding maskclip heatmap
-                            cls_heatmap = maskclip_logits[0,cls]
-                            padded_hmap = mmcv.impad(cls_heatmap.detach().cpu().numpy(),\
+                            cls_heatmap = maskclip_logits[0,cls].detach().cpu().numpy()
+                            # Normalize between -1, 1 to match training
+                            cls_normalized_heatmap = (cls_heatmap-(np.max(cls_heatmap)+np.min(cls_heatmap))/2)/\
+                                ((np.max(cls_heatmap)-np.min(cls_heatmap))/2)
+                            padded_normalized_hmap = mmcv.impad(cls_normalized_heatmap,\
                                  shape=(512,512), pad_val=0)
                             # Ideally heatmaps are between 0-1 
                             #padded_normalized_hmap = mmcv.image.imnormalize_(padded_hmap\
                             #    , mean=np.array(0.5), std=np.array(0.5), to_rgb=False)
                             # Just min max normalize
-                            padded_normalized_hmap = (padded_hmap - np.min(padded_hmap))/\
-                                (np.max(padded_hmap)-np.min(padded_hmap))
 
                             # Combine with full size image
                             img_with_cls_logit = np.concatenate((original_rgb_img, np.expand_dims(padded_normalized_hmap, (0,1))), axis=1)
-
                             #Try, now substitute this for the data batch in the rgbs model
                             data['img'] = torch.tensor(img_with_cls_logit).cuda()
                             #data['gt_semantic_seg'] = cls_specific_gt_seg
                             result = rgbs_maskclip_model(return_loss=False, **data)
 
                             predicted_cls_seg = result[0][0][0]
-                            predicted_segs.append((cls, predicted_cls_seg))
+                            mask_area = np.sum(predicted_cls_seg)
+                            predicted_segs.append((mask_area, cls, predicted_cls_seg))
 
-                        pass
-
+                        # Sort predicted segs by decreasing area, append final result
+                        predicted_segs.sort(reverse = True)
+                        multiclass_seg = np.zeros(predicted_cls_seg.shape)
+                        for (area, cls, fgbg_mask) in predicted_segs:
+                            multiclass_seg[fgbg_mask==1] = cls+1 #previous were 0 index to maintain bg class
+                        
                     if VISUALIZING_TRAINED_MODEL:
                         # Get filename with class
                         filename = data['img_metas'][0]['ori_filename']
@@ -277,11 +292,33 @@ def single_gpu_test(model, # the RGB model
                 if efficient_test:
                     result = [np2tmp(_, tmpdir='.efficient_test') for _ in result]
 
+
+
+            if pre_eval and maskclip_clip_fair_eval:
+                gt_seg = data['raw_gt_seg']    
+                gt_classes = np.unique(gt_seg).tolist()
+                # Remove 255
+                if 255 in gt_classes:
+                    gt_classes.remove(255)
+                
+                
+                result = dataset.pre_eval(multiclass_seg, indices=batch_indices)
+                results.extend(result)
+            else :
+                results.extend(result)
+
+            batch_size = len(result)
+            for _ in range(batch_size):
+                prog_bar.update()
+
+
+
             if format_only:
                 result = dataset.format_results(
                     result, indices=batch_indices, **format_args)
             # pre eval shouldnt run while producing data
-            if not PRODUCING_MASKCLIP_DATA:
+
+            if not PRODUCING_MASKCLIP_DATA and not maskclip_clip_fair_eval:
                 if pre_eval:
                     # TODO: adapt samples_per_gpu > 1.
                     # only samples_per_gpu=1 valid now
@@ -290,6 +327,8 @@ def single_gpu_test(model, # the RGB model
                     # Look at filename:
                     if VISUALIZING_TRAINED_MODEL:
                         filename = data['img_metas'][0]['ori_filename']
+                    elif maskclip_clip_fair_eval:
+                        filename = data['img_metas'].data[0][0]['filename']
                     else:
                         filename = data['img_metas'][0].data[0][0]['ori_filename']
                     target_label = filename.split("class")

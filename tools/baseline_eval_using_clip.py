@@ -287,7 +287,7 @@ def main():
     pretrained_rgbs_model.to(torch.device('cuda'))
 
     checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
-    checkpoint = load_checkpoint(pretrained_rgbs_model, args.load_from, map_location='cpu')
+    rgbs_checkpoint = load_checkpoint(pretrained_rgbs_model, args.load_from, map_location='cpu')
     
     if 'CLASSES' in checkpoint.get('meta', {}):
         model.CLASSES = checkpoint['meta']['CLASSES']
