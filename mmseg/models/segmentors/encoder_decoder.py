@@ -75,6 +75,8 @@ class EncoderDecoder(BaseSegmentor):
         map of the same size as input."""
         x = self.extract_feat(img)
         out = self._decode_head_forward_test(x, img_metas)
+        # memory leak
+        del x
         out = resize(
             input=out,
             size=img.shape[2:],

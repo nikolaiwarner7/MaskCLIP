@@ -1,8 +1,11 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import os.path as osp
+import os
 import tempfile
 import warnings
 
+import shutil
+import pdb
 import mmcv
 import numpy as np
 import torch
@@ -12,7 +15,7 @@ from mmcv.image import tensor2imgs
 from mmcv.runner import get_dist_info
 from nwarner_common_utils import CLASS_SPLITS, SUBSAMPLE, OUT_ANNOTATION_DIR, OUT_RGB_S_DIR, SPLIT
 from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, VISUALIZING_TRAINED_MODEL
-from nwarner_common_utils import CLIP_SIM_THRESHOLD_PRESENT
+from nwarner_common_utils import CLIP_SIM_THRESHOLD_PRESENT, EVALUATE_AND_VISUALIZE
 from PIL import Image
 import requests
 
@@ -108,7 +111,12 @@ def single_gpu_test(model, # the RGB model
     VOC_class_labels = list(dataset.CLASSES)
     VOC_class_labels.pop(0) # remove background
     # To debug multichannel model, use a subsample
-
+    EVAL_DIR = 'test_imgs/'
+    
+    
+    if EVALUATE_AND_VISUALIZE:
+        shutil.rmtree(EVAL_DIR)
+        os.mkdir(EVAL_DIR)   
     for batch_indices, data in zip(loader_indices, data_loader):
         batch_size = len(batch_indices)
         if batch_indices[0] < SUBSAMPLE:
@@ -125,7 +133,15 @@ def single_gpu_test(model, # the RGB model
                 elif not PRODUCING_MASKCLIP_DATA and not maskclip_clip_fair_eval:
                     data['img'] = data['img'][0]
                     data['gt_semantic_seg'] = data['gt_semantic_seg'][0]
-                result = model(return_loss=False, **data)
+                # Maintains default behavior, which rescales logits post inference
+                # For our Maskclip experiments, we disable this behavior for double inference
+                # IE -> 1) RGB-> Maskclip saliency
+                if maskclip_clip_fair_eval:
+                    data['rescale'] = False
+                    result = model(return_loss=False, **data)
+                    data['rescale'] = False
+                else:
+                    result = model(return_loss=False, **data)
 
             if show or out_dir:
                 # Allows access to train data in test format
@@ -212,6 +228,10 @@ def single_gpu_test(model, # the RGB model
                                     produce_maskclip_maps_class_id=cls,
                                     )
 
+                        del img_tensor, img_metas, imgs, img_show
+                        del gt_raw_annotation, gt_classes, gt_present_classes, cls_specific_gt_seg
+                        del cls_logit, norm_cls_logit, img_with_cls_logit
+
                     elif maskclip_clip_fair_eval:
                         # Get the predicted maskclip logits
                         # It is BS=1, NUM_CLASSES=20, SP_DIM, SP_DIM
@@ -242,6 +262,7 @@ def single_gpu_test(model, # the RGB model
                         # 3) Loop through said list8
                         # Force seg list for debugging
                         predicted_segs = []
+                        #pdb.set_trace()
                         for cls in potential_present_idxs:
                             # Grab the corresponding maskclip heatmap
                             cls_heatmap = maskclip_logits[0,cls].detach().cpu().numpy()
@@ -271,7 +292,45 @@ def single_gpu_test(model, # the RGB model
                         multiclass_seg = np.zeros(predicted_cls_seg.shape)
                         for (area, cls, fgbg_mask) in predicted_segs:
                             multiclass_seg[fgbg_mask==1] = cls+1 #previous were 0 index to maintain bg class
-                        
+
+                        gt_present_classes = np.unique(data['gt_semantic_seg'].data[0].detach().cpu().numpy()).tolist()
+                        gt_present_classes.remove(0)
+                        gt_present_classes.remove(255)
+
+                        # Check if there are >1 gt classes in an image, visualize those images
+                        #if EVALUATE_AND_VISUALIZE and len(gt_present_classes)>1:
+
+                        # Check if there are unseen classes in gt present in image, visualize these:
+                        if EVALUATE_AND_VISUALIZE and set(gt_present_classes).intersection(CLASS_SPLITS['worst_unseen']):
+                            # Input saliency 
+                            test_img = padded_normalized_hmap
+                            test_img = (test_img -np.min(test_img))/ (np.max(test_img)-np.min(test_img))
+                            filename = data['img_metas'].data[0][0]['ori_filename'].split(".jpg")[0]
+                            plt.imsave('test_imgs/%s_saliency_input.png' % filename, test_img)
+
+                            # Input rgb
+                            img = original_rgb_img
+                            test = img.permute(0, 2, 3, 1)
+                            test_img = test[0,:,:,:].detach().cpu().numpy()
+                            # Pick img_num for first ch
+                            test_img = (test_img -np.min(test_img))/ (np.max(test_img)-np.min(test_img))
+                            filename = data['img_metas'].data[0][0]['ori_filename'].split(".jpg")[0]
+                            final_classes = '_'.join(potential_classes)
+                            plt.imsave('test_imgs/%s_%s_rgb_input.png' % (filename, final_classes), test_img)
+
+                            # Output pred seg
+                            test_img = multiclass_seg
+                            test_img = (test_img -np.min(test_img))/ (np.max(test_img)-np.min(test_img))
+                            filename = data['img_metas'].data[0][0]['ori_filename'].split(".jpg")[0]
+                            plt.imsave('test_imgs/%s_pred_seg.png' % filename, test_img)
+
+                            # Output GT Seg
+                            test_img = data['gt_semantic_seg'].data[0][0,0]
+                            test_img[test_img==255]=0
+                            filename = data['img_metas'].data[0][0]['ori_filename'].split(".jpg")[0]
+                            plt.imsave('test_imgs/%s_gtseg.png' % filename, test_img)
+
+                                                
                     if VISUALIZING_TRAINED_MODEL:
                         # Get filename with class
                         filename = data['img_metas'][0]['ori_filename']
@@ -307,7 +366,8 @@ def single_gpu_test(model, # the RGB model
                 result = dataset.pre_eval(multiclass_seg, indices=batch_indices)
                 results.extend(result)
             else :
-                results.extend(result)
+                pass
+                #results.extend(result)
 
 
 
@@ -343,6 +403,9 @@ def single_gpu_test(model, # the RGB model
                 batch_size = len(result)
             for _ in range(batch_size):
                 prog_bar.update()
+            
+            # Avoids memory leak from extracting raw logits
+            del result
     if not PRODUCING_MASKCLIP_DATA:
         dataset.evaluate(results)
         return results

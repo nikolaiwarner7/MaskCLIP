@@ -1,5 +1,5 @@
 import os
-os.chdir('/root/MaskCLIP')
+os.chdir('/coc/flash3/nwarner30/MaskCLIP/')
 
 IMG_DIR = 'data/VOCdevkit/VOC2012/RGB_S_Images/'
 

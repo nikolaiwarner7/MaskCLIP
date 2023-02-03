@@ -10,8 +10,10 @@ import sys
 #sys.path.append('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP/mmseg')
 
 from nwarner_common_utils import PRODUCE_MASKCLIP_MAPS_CONFIG, OUT_ANNOTATION_DIR, OUT_RGB_S_DIR, DELETE_DATA
-sys.path.append('/root/MaskCLIP/')
-sys.path.append('/root/MaskCLIP/mmseg')
+#sys.path.append('/root/MaskCLIP/')
+#sys.path.append('/root/MaskCLIP/mmseg')
+sys.path.append('/coc/flash3/nwarner30/MaskCLIP/')
+sys.path.append('/coc/flash3/nwarner30/MaskCLIP/mmseg')
 
 import mmcv
 import torch
@@ -148,7 +150,7 @@ def main():
     if args.out is not None and not args.out.endswith(('.pkl', '.pickle')):
         raise ValueError('The output file must be a pkl file.')
     
-    os.chdir('/root/MaskCLIP/')
+    os.chdir('/coc/flash3/nwarner30/MaskCLIP/')
     cfg = mmcv.Config.fromfile(args.config)
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
@@ -359,5 +361,5 @@ if __name__ == '__main__':
     #os.chdir('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP')
     main()
     # Update annotations file from this data directory
-    import subprocess
-    subprocess.call("/root/MaskCLIP/tools/produce_maskclip_VOC_maps.py", shell=True)
+    #import subprocess
+    #subprocess.call("/root/MaskCLIP/tools/produce_maskclip_VOC_maps.py", shell=True)

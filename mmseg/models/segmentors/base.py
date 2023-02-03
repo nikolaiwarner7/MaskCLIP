@@ -100,12 +100,16 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
             pad_shapes = [_['pad_shape'] for _ in img_meta]
             assert all(shape == pad_shapes[0] for shape in pad_shapes)
         """
-
+        # Maintains default behavior, which rescales logits post inference
+        # For our Maskclip experiments, we disable this behavior for double inference
+        # IE -> 1) RGB-> Maskclip saliency
+        if 'rescale' not in kwargs:
+            kwargs['rescale'] = True
         if num_augs == 1:
             #return self.simple_test(imgs[0], img_metas[0], **kwargs)
             # Remove kwargs so gt_semantic_seg can pass
             # Replace img_metas[0] with img_metas
-            return self.simple_test_with_logits(imgs[0], img_metas), #**kwargs)
+            return self.simple_test_with_logits(imgs[0], img_metas, rescale=kwargs['rescale']), #**kwargs)
         else:
             return self.aug_test(imgs, img_metas, **kwargs)
 

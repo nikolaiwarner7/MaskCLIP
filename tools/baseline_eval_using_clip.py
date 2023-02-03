@@ -5,6 +5,11 @@
 # 2) Computes most likely objects present in image;
 # 3) Sequentially computes logits in loop then mIOU
 
+import os
+# We want to use GPU 1 while other one is used for training
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 import argparse
 import os
 import os.path as osp
@@ -20,6 +25,9 @@ from nwarner_common_utils import PRODUCE_MASKCLIP_MAPS_CONFIG, OUT_ANNOTATION_DI
 from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, EVALUATE_USING_CLIP
 sys.path.append('/root/MaskCLIP/')
 sys.path.append('/root/MaskCLIP/mmseg')
+sys.path.append('/coc/flash3/nwarner30/MaskCLIP/')
+sys.path.append('/coc/flash3/nwarner30/MaskCLIP/mmseg')
+
 
 import mmcv
 import torch
@@ -152,7 +160,8 @@ def main():
     if args.out is not None and not args.out.endswith(('.pkl', '.pickle')):
         raise ValueError('The output file must be a pkl file.')
     
-    os.chdir('/root/MaskCLIP/')
+    os.chdir('/coc/flash3/nwarner30/MaskCLIP/')
+    #os.chdir('/root/MaskCLIP/')
     cfg = mmcv.Config.fromfile(args.config)
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
@@ -347,7 +356,7 @@ def main():
             dist=distributed,
             shuffle=False)
         """
-
+        #pdb.set_trace()
         results = single_gpu_test(
             model,
             ##
@@ -405,6 +414,7 @@ if __name__ == '__main__':
     # For debugging it locally, change dir to root
     #os.chdir(os.path.join(os.getcwd(),'mmseg'))
     #os.chdir('/home/nwarner30/Insync/nikolaiwarner7@gmail.com/OneDrive/Spring 2023/Research/MaskCLIP')
+    import pdb
     main()
     # Update annotations file from this data directory
     #import subprocess
