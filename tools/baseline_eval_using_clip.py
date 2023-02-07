@@ -8,7 +8,7 @@
 import os
 # We want to use GPU 1 while other one is used for training
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import argparse
 import os
@@ -46,7 +46,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='mmseg test (and eval) a model')
     parser.add_argument(
-    '--load-from', default='test_outs/latest.pth', help='the checkpoint file to load weights from')
+    '--load-from', default='test_outs/iter_50000.pth', help='the checkpoint file to load weights from')
     parser.add_argument('--config', default='configs/maskclip/maskclip_r50_512x512_voc12aug_20.py', help='test config file path')
     parser.add_argument('--checkpoint', default='pretrain/RN50_clip_backbone.pth', help='checkpoint file')
     parser.add_argument(
@@ -210,34 +210,27 @@ def main():
     # build the dataloader
     # TODO: support multiple images per gpu (only minor changes are needed)
     
+    # This previously had the augmentation removed, padding intact setting from produce VOC maps
+    # Now configured to train_RGBS val set settings
 
 
-    #cfg.data.train['gt_raw_seg'] = True
-    if PRODUCE_MASKCLIP_MAPS_CONFIG == 'train':
-        # Was causing an issue in dataloader loading size, investigate shortly
-        #cfg.data.train['pipeline'].pop(3) # remove random crop
-        cfg.data.train['pipeline'].pop(5) # remove distortion
+    cfg.data.val['pipeline'].append({})
+    cfg.data.val['pipeline'][2] = cfg.data.val['pipeline'][1]
+    cfg.data.val['pipeline'][1] =\
+        {'type': 'LoadAnnotations', 'reduce_zero_label': False, 'suppress_labels': []}
 
-        # We're creating raw samples so don't want any aug at this point
-        cfg.data.train['pipeline'][2] = {'type': 'Resize', 'img_scale': (512, 512), 'ratio_range': (1.0, 1.0)}
-        cfg.data.train['pipeline'][3] = {'type': 'RandomCrop', 'crop_size': (512, 512), 'cat_max_ratio': 1.0}
-        cfg.data.train['pipeline'][4] = {'type': 'RandomFlip', 'prob': 0.0}
+    ## Make sure it collects gt semantic seg
+    cfg.data.val['pipeline'][2]['transforms'][3]['keys'].append('gt_semantic_seg')
+    cfg.data.val['pipeline'][2]['transforms'][4]['keys'].append('gt_semantic_seg')
 
-        # Collect the raw gt seg to make available during inference
-        # Need original meta-keys otherwise throws key errors
-        #cfg.data.train['pipeline'][6] = {'type': 'Collect', 'keys': ['img', 'gt_semantic_seg', 'raw_gt_seg'], \
-        #    'meta_keys' : ['filename', 'ori_filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'flip', 'flip_direction', 'img_norm_cfg']}
+    # Remove some augmentationsfrom val pipeline
+    ## 2_3 Changes to affix ratio to 512 (though it ends up being min dim, not max dim resizing)
+    cfg.data.val['pipeline'][2]['transforms'][0] = {'type': 'Resize', 'img_scale': (512, 512), 'ratio_range': (1.0, 1.0)}
+    # Set random flip probability to 0
+    cfg.data.val['pipeline'][2]['transforms'][1] = {'type': 'RandomFlip', 'prob': 0.0}
+    cfg.data.val['pipeline'][2]['transforms'].insert(0, {'type': 'Pad', 'size': (512, 512), 'pad_val': 0, 'seg_pad_val': 255})
 
-        dataset = build_dataset(cfg.data.train)
-        # Need requisite options based of data.train/ val for handling gt_segs in pipeline
-    elif PRODUCE_MASKCLIP_MAPS_CONFIG == 'val':
-        # We want the same processing and access to gt_segs for validation 
-        cfg.data.train['pipeline'].pop(5) # remove distortion
-        cfg.data.train['pipeline'][2] = {'type': 'Resize', 'img_scale': (512, 512), 'ratio_range': (1.0, 1.0)}
-        cfg.data.train['pipeline'][3] = {'type': 'RandomCrop', 'crop_size': (512, 512), 'cat_max_ratio': 1.0}
-        cfg.data.train['pipeline'][4] = {'type': 'RandomFlip', 'prob': 0.0}
-        cfg.data.val.pipeline = cfg.data.train.pipeline
-        dataset = build_dataset(cfg.data.val)
+    dataset = build_dataset(cfg.data.val)
 
     # Don't perform eval when producing data
     args.eval = ''

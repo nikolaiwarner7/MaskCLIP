@@ -119,6 +119,8 @@ def single_gpu_test(model, # the RGB model
         os.mkdir(EVAL_DIR)   
     for batch_indices, data in zip(loader_indices, data_loader):
         batch_size = len(batch_indices)
+        # Temporarily changed to fix bug in middle of dataloader
+        #if batch_indices[0] < SUBSAMPLE and batch_indices[0] > 570:
         if batch_indices[0] < SUBSAMPLE:
             result = None
             with torch.no_grad():
@@ -137,6 +139,9 @@ def single_gpu_test(model, # the RGB model
                 # For our Maskclip experiments, we disable this behavior for double inference
                 # IE -> 1) RGB-> Maskclip saliency
                 if maskclip_clip_fair_eval:
+                    data['img'] = data['img'][0]
+                    data['img_metas'] = data['img_metas'][0].data[0]
+                    img_metas = data['img_metas']
                     data['rescale'] = False
                     result = model(return_loss=False, **data)
                     data['rescale'] = False
@@ -150,9 +155,11 @@ def single_gpu_test(model, # the RGB model
                     img_metas = data['img_metas']
                 else:
                     img_tensor = data['img'].data[0]
-                    img_metas = data['img_metas'].data[0]
+                    if not maskclip_clip_fair_eval:
+                        img_metas = data['img_metas'].data[0]
                 if not VISUALIZING_TRAINED_MODEL:
                 # We dont have 3D RGB images to convert to imgs 
+                    img_tensor = torch.unsqueeze(img_tensor, 0)
                     imgs = tensor2imgs(img_tensor, **img_metas[0]['img_norm_cfg'])
                     assert len(imgs) == len(img_metas)
                 elif VISUALIZING_TRAINED_MODEL:
@@ -277,6 +284,8 @@ def single_gpu_test(model, # the RGB model
                             # Just min max normalize
 
                             # Combine with full size image
+                            if len(original_rgb_img.shape)<4:
+                                original_rgb_img = torch.unsqueeze(original_rgb_img,0)
                             img_with_cls_logit = np.concatenate((original_rgb_img, np.expand_dims(padded_normalized_hmap, (0,1))), axis=1)
                             #Try, now substitute this for the data batch in the rgbs model
                             data['img'] = torch.tensor(img_with_cls_logit).cuda()
@@ -293,19 +302,23 @@ def single_gpu_test(model, # the RGB model
                         for (area, cls, fgbg_mask) in predicted_segs:
                             multiclass_seg[fgbg_mask==1] = cls+1 #previous were 0 index to maintain bg class
 
-                        gt_present_classes = np.unique(data['gt_semantic_seg'].data[0].detach().cpu().numpy()).tolist()
-                        gt_present_classes.remove(0)
-                        gt_present_classes.remove(255)
+                        gt_present_classes = np.unique(data['gt_semantic_seg'][0].data[0].detach().cpu().numpy()).tolist()
+
+                        # Make sure it only contains list of foreground classes                    
+                        if 0 in gt_present_classes:
+                            gt_present_classes.remove(0)
+                        if 255 in gt_present_classes:
+                            gt_present_classes.remove(255)
 
                         # Check if there are >1 gt classes in an image, visualize those images
                         #if EVALUATE_AND_VISUALIZE and len(gt_present_classes)>1:
 
                         # Check if there are unseen classes in gt present in image, visualize these:
-                        if EVALUATE_AND_VISUALIZE and set(gt_present_classes).intersection(CLASS_SPLITS['worst_unseen']):
+                        if EVALUATE_AND_VISUALIZE and set(gt_present_classes).intersection(CLASS_SPLITS['unseen']):
                             # Input saliency 
                             test_img = padded_normalized_hmap
                             test_img = (test_img -np.min(test_img))/ (np.max(test_img)-np.min(test_img))
-                            filename = data['img_metas'].data[0][0]['ori_filename'].split(".jpg")[0]
+                            filename = img_metas[0]['ori_filename'].split(".jpg")[0]
                             plt.imsave('test_imgs/%s_saliency_input.png' % filename, test_img)
 
                             # Input rgb
@@ -314,20 +327,20 @@ def single_gpu_test(model, # the RGB model
                             test_img = test[0,:,:,:].detach().cpu().numpy()
                             # Pick img_num for first ch
                             test_img = (test_img -np.min(test_img))/ (np.max(test_img)-np.min(test_img))
-                            filename = data['img_metas'].data[0][0]['ori_filename'].split(".jpg")[0]
+                            filename = img_metas[0]['ori_filename'].split(".jpg")[0]
                             final_classes = '_'.join(potential_classes)
                             plt.imsave('test_imgs/%s_%s_rgb_input.png' % (filename, final_classes), test_img)
 
                             # Output pred seg
                             test_img = multiclass_seg
                             test_img = (test_img -np.min(test_img))/ (np.max(test_img)-np.min(test_img))
-                            filename = data['img_metas'].data[0][0]['ori_filename'].split(".jpg")[0]
+                            filename = img_metas[0]['ori_filename'].split(".jpg")[0]
                             plt.imsave('test_imgs/%s_pred_seg.png' % filename, test_img)
 
                             # Output GT Seg
-                            test_img = data['gt_semantic_seg'].data[0][0,0]
+                            test_img = data['gt_semantic_seg'][0][0,0]
                             test_img[test_img==255]=0
-                            filename = data['img_metas'].data[0][0]['ori_filename'].split(".jpg")[0]
+                            filename = img_metas[0]['ori_filename'].split(".jpg")[0]
                             plt.imsave('test_imgs/%s_gtseg.png' % filename, test_img)
 
                                                 
@@ -356,18 +369,16 @@ def single_gpu_test(model, # the RGB model
 
 
             if pre_eval and maskclip_clip_fair_eval:
-                gt_seg = data['raw_gt_seg']    
-                gt_classes = np.unique(gt_seg).tolist()
-                # Remove 255
-                if 255 in gt_classes:
-                    gt_classes.remove(255)
-                
+                # We made inference for val at 512,512 res w padding (once)
+                # resize multiclass_seg prediction to actual input img res for fair eval
+                # Unresize to max original dimension, then unpad
+                max_dim = np.max(img_metas[0]['ori_shape'][:2])
+                multiclass_seg = mmcv.imrescale(multiclass_seg, (max_dim, max_dim))
                 
                 result = dataset.pre_eval(multiclass_seg, indices=batch_indices)
                 results.extend(result)
             else :
                 pass
-                #results.extend(result)
 
 
 
@@ -401,11 +412,11 @@ def single_gpu_test(model, # the RGB model
                     results.extend(result)
 
                 batch_size = len(result)
-            for _ in range(batch_size):
-                prog_bar.update()
-            
             # Avoids memory leak from extracting raw logits
             del result
+
+        for _ in range(batch_size):
+            prog_bar.update()
     if not PRODUCING_MASKCLIP_DATA:
         dataset.evaluate(results)
         return results

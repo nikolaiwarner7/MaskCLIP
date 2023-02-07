@@ -296,6 +296,10 @@ def main():
     cfg.data.val['pipeline'][2]['transforms'][4]['keys'].append('gt_semantic_seg')
 
     # Remove some augmentationsfrom val pipeline
+    ## 2_3 Changes to affix ratio to 512 (though it ends up being min dim, not max dim resizing)
+    cfg.data.val['pipeline'][2]['transforms'][0] = {'type': 'Resize', 'img_scale': (512, 512), 'ratio_range': (1.0, 1.0)}
+    # Set random flip probability to 0
+    cfg.data.val['pipeline'][2]['transforms'][1] = {'type': 'RandomFlip', 'prob': 0.0}
     #cfg.data.val['pipeline'][2]['transforms'][1] = {'type': 'RandomFlip', 'prob': 0.0}
     #cfg.data.val['pipeline'][2]['transforms'][2] = {'type': 'Resize', 'img_scale': (512, 512), 'ratio_range': (1.0, 1.0)}
     
