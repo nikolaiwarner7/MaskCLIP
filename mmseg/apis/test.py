@@ -372,10 +372,13 @@ def single_gpu_test(model, # the RGB model
                 # We made inference for val at 512,512 res w padding (once)
                 # resize multiclass_seg prediction to actual input img res for fair eval
                 # Unresize to max original dimension, then unpad
-                max_dim = np.max(img_metas[0]['ori_shape'][:2])
+                or_h = img_metas[0]['ori_shape'][0]
+                or_w = img_metas[0]['ori_shape'][1]
+                max_dim = np.max([or_h, or_w])
                 multiclass_seg = mmcv.imrescale(multiclass_seg, (max_dim, max_dim))
-                
-                result = dataset.pre_eval(multiclass_seg, indices=batch_indices)
+                # cut out padding by cropping unscaled to original dims
+                unpadded_multiclass_seg = multiclass_seg[:or_h, :or_w]
+                result = dataset.pre_eval(unpadded_multiclass_seg, indices=batch_indices)
                 results.extend(result)
             else :
                 pass

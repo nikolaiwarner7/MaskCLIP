@@ -4,8 +4,8 @@ import copy
 import os
 
 #Check these settings prior to running
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+#os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "1, 2, 3, 4"
 
 
 import os.path as osp
@@ -43,7 +43,9 @@ def parse_args():
     parser.add_argument(
         '--load-from', help='the checkpoint file to load weights from')
     parser.add_argument(
-        '--resume-from', default='test_outs/latest.pth', help='the checkpoint file to resume from')
+        '--resume-from', 
+        #default='test_outs/latest.pth', 
+        help='the checkpoint file to resume from')
     parser.add_argument(
         '--no-validate',
         action='store_true',
@@ -57,7 +59,7 @@ def parse_args():
     group_gpus.add_argument(
         '--gpu-ids',
         # For Skynet cluster
-        #default = [0, 1, 2, 3],
+        default = [0, 1, 2, 3],
         type=int,
         nargs='+',
         help='ids of gpus to use '
@@ -92,14 +94,15 @@ def parse_args():
     parser.add_argument(
         '--launcher',
         choices=['none', 'pytorch', 'slurm', 'mpi'],
-        default = 'none',
-        #default='pytorch',
+        #default = 'none',
+        default='pytorch',
         help='job launcher')
     parser.add_argument('--local_rank', type=int, default=1)
     parser.add_argument(
         '--auto-resume',
         action='store_true',
-        default = True, # Resume training from last point
+        # Turned off auto resu
+        #default = True, # Resume training from last point
         help='resume from the latest checkpoint automatically.')
     args = parser.parse_args()
     #
@@ -266,7 +269,7 @@ def main():
         {'type': 'Normalize', 'mean': [123.675, 116.28, 103.53, 0.5], 'std': [58.395, 57.12, 57.375, 0.5], 'to_rgb': True}
 
     # Set batch size to 2 to allow batch norm in ASPP decoder head to work
-    cfg.data['samples_per_gpu'] = 6
+    cfg.data['samples_per_gpu'] = 18
 
     ## Remove reduce zero label for our binary mask, class agnostic training  
     # Otherwise produces bug with 0/255 rolled back labels

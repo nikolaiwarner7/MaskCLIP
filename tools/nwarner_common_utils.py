@@ -6,9 +6,9 @@ CLASS_SPLITS = {'seen': list(range(1,15+1)),
 
 # Parameters for producing Maskclip VOC maps loaded in mmseg/apis/single_gpu test test.py
 # CHOOSE ONE OF THESE 3, or none during training:
-PRODUCING_MASKCLIP_DATA = False  # Fixed flag for dataloader to store raw segs, only run when producing data
+PRODUCING_MASKCLIP_DATA = True  # Fixed flag for dataloader to store raw segs, only run when producing data
 VISUALIZING_TRAINED_MODEL = False
-EVALUATE_USING_CLIP = True
+EVALUATE_USING_CLIP = False
 EVALUATE_AND_VISUALIZE = False
 
 CLIP_SIM_THRESHOLD_PRESENT = 24.5 # Experiment with
