@@ -13,10 +13,11 @@ class PascalVOCDataset(CustomDataset):
         split (str): Split txt file for Pascal VOC.
     """
 
+    # Edits to be whole words for CLIP
     CLASSES = ('background', 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle',
-               'bus', 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog',
-               'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa',
-               'train', 'tvmonitor')
+               'bus', 'car', 'cat', 'chair', 'cow', 'dining table', 'dog',
+               'horse', 'motorcycle', 'person', 'potted plant', 'sheep', 'sofa',
+               'train', 'tv monitor')
 
     PALETTE = [[0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128],
                [128, 0, 128], [0, 128, 128], [128, 128, 128], [64, 0, 0],
@@ -39,9 +40,9 @@ class PascalVOCDatasetRGBS(CustomDataset):
     """
 
     CLASSES = ('background', 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle',
-               'bus', 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog',
-               'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa',
-               'train', 'tvmonitor')
+               'bus', 'car', 'cat', 'chair', 'cow', 'dining table', 'dog',
+               'horse', 'motorcycle', 'person', 'potted plant', 'sheep', 'sofa',
+               'train', 'tv monitor')
 
     PALETTE = [[0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128],
                [128, 0, 128], [0, 128, 128], [128, 128, 128], [64, 0, 0],
@@ -64,10 +65,11 @@ class PascalVOCDataset20(CustomDataset):
         split (str): Split txt file for Pascal VOC.
     """
 
-    CLASSES = ('aeroplane', 'bicycle', 'bird', 'boat', 'bottle',
-               'bus', 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog',
-               'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa',
-               'train', 'tvmonitor')
+    CLASSES = ('background', 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle',
+               'bus', 'car', 'cat', 'chair', 'cow', 'dining table', 'dog',
+               'horse', 'motorcycle', 'person', 'potted plant', 'sheep', 'sofa',
+               'train', 'tv monitor')
+
 
     PALETTE = [[128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128],
                [128, 0, 128], [0, 128, 128], [128, 128, 128], [64, 0, 0],

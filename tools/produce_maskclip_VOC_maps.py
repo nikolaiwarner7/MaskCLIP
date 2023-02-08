@@ -201,11 +201,15 @@ def main():
     
 
     # Removing all augs at shard generation
-    cfg.data.train.pipeline.pop(6) #pad
-    cfg.data.train.pipeline.pop(5) #normalize
+    cfg.data.train.pipeline.pop(7) #pad
+    # normalization stays to calculate heatmap through inference
+    #cfg.data.train.pipeline.pop(6) #normalize
+    cfg.data.train.pipeline.pop(5) #distort
     cfg.data.train.pipeline.pop(4) #randomflip
     cfg.data.train.pipeline.pop(3) #randomcrop
     cfg.data.train.pipeline.pop(2) #rand_resize
+    cfg.data.train.pipeline[4] = {'type': 'Collect', 'keys' : ['img', 'gt_semantic_seg'], 'meta_keys' : ['filename', 'ori_filename',\
+        'ori_shape', 'img_shape', 'img_norm_cfg']}
 
     if PRODUCE_MASKCLIP_MAPS_CONFIG == 'train':
 

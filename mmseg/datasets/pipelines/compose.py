@@ -2,7 +2,7 @@
 import collections
 
 from mmcv.utils import build_from_cfg
-from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, EVALUATE_USING_CLIP, PRODUCE_MASKCLIP_MAPS_CONFIG
+from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, EVALUATE_USING_CLIP, TRAINING_RGBS_MODEL
 import numpy as np
 from ..builder import PIPELINES
 
@@ -41,18 +41,23 @@ class Compose(object):
         # 2DO: add flag so this doesn't get called during actual training job
 
         if PRODUCING_MASKCLIP_DATA:
-            if PRODUCE_MASKCLIP_MAPS_CONFIG == 'train':
-                if 'raw_gt_seg' not in self.transforms[9].keys:
-                    self.transforms[9].keys.append('raw_gt_seg')
-            # There's no photometric distortion in the val set now
-            elif PRODUCE_MASKCLIP_MAPS_CONFIG == 'val':
-                if 'raw_gt_seg' not in self.transforms[8].keys:
-                    self.transforms[8].keys.append('raw_gt_seg')
+            if 'raw_gt_seg' not in self.transforms[4].keys:
+                self.transforms[4].keys.append('raw_gt_seg')
 
         for i, t in enumerate(self.transforms):
             if isinstance(t, PIPELINES.get('Pad')) and EVALUATE_USING_CLIP:
                 max_dim = np.max(data['img'].shape[:-1])
                 t.size = (max_dim, max_dim)
+            # Only process the first 3 channels for photometric distortion
+            if isinstance(t, PIPELINES.get('PhotoMetricDistortion')) and TRAINING_RGBS_MODEL:
+                saliency_data = data['img'][:,:,-1, np.newaxis]
+                data['img'] = data['img'][:,:,:-1]
+                
+                data = t(data)
+                data['img'] = np.concatenate((data['img'],saliency_data), axis=-1)
+                        
+                # Skip current iteration
+                continue
             data = t(data)
             if data is None:
                 return None

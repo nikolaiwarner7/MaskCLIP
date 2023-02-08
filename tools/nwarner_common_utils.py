@@ -6,7 +6,12 @@ CLASS_SPLITS = {'seen': list(range(1,15+1)),
 
 # Parameters for producing Maskclip VOC maps loaded in mmseg/apis/single_gpu test test.py
 # CHOOSE ONE OF THESE 3, or none during training:
-PRODUCING_MASKCLIP_DATA = True  # Fixed flag for dataloader to store raw segs, only run when producing data
+# Enables proper data processing
+PRODUCING_MASKCLIP_DATA = False  # Fixed flag for dataloader to store raw segs, only run when producing data
+## Use this setting carefully! Only with PRODUCING_MASKCLIP_DATA
+DELETE_DATA = False
+
+TRAINING_RGBS_MODEL = True # Enables handling of photometric distortion
 VISUALIZING_TRAINED_MODEL = False
 EVALUATE_USING_CLIP = False
 EVALUATE_AND_VISUALIZE = False
@@ -14,10 +19,7 @@ EVALUATE_AND_VISUALIZE = False
 CLIP_SIM_THRESHOLD_PRESENT = 24.5 # Experiment with
 
 
-## Use this setting carefully! Only with PRODUCING_MASKCLIP_DATA
-DELETE_DATA = True
-
-PRODUCE_MASKCLIP_MAPS_CONFIG = 'val' # 'train' or 'val'
+PRODUCE_MASKCLIP_MAPS_CONFIG = 'train' # 'train' or 'val'
 SUBSAMPLE = 2000 # Number of samples to take for producing our maskclip-heatmap dataset
 # 1464 in train, 1449 in val
 # Set subsample >>, then it runs whole thing

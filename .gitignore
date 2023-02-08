@@ -138,3 +138,6 @@ test_outs/latest.pth
 # Big files
 Miniconda3-latest*
 VOCtrainval_11*
+
+# Google collaboration -colab file
+VOC_Instance_Segmentation_Data_Creation.ipynb

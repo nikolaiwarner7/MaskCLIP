@@ -32,6 +32,13 @@ from mmseg.datasets import build_dataset
 from mmseg.models import build_segmentor
 from mmseg.utils import collect_env, get_root_logger
 
+## CHANGE FOR EACH RUN:
+RUN_NAME = 'BS128_LR4E-4_DATE2_8'
+SAMPLES_PER_GPU = 16 # 8 gpus
+INIT_LR = 4e-4
+
+#
+EVAL_INTERVAL = 2000
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a segmentor')
@@ -39,11 +46,12 @@ def parse_args():
     # Switch to use deeplab backbone
     #parser.add_argument('--config', default='configs/deeplabv3plus/deeplabv3plus_r50-d8_512x512_40k_voc12aug.py', help='test config file path')
     parser.add_argument('--config', default='configs/maskclip_plus/zero_shot/maskclip_plus_r50_deeplabv2_r101-d8_512x512_20k_voc12aug_20.py', help='test config file path')
-    parser.add_argument('--work-dir', default = 'test_outs/', help='the dir to save logs and models')
+    parser.add_argument('--work-dir', default = 'saved_runs/%s' % RUN_NAME, help='the dir to save logs and models')
     parser.add_argument(
         '--load-from', help='the checkpoint file to load weights from')
     parser.add_argument(
         '--resume-from', 
+        # Comment out to train from scratch
         #default='test_outs/latest.pth', 
         help='the checkpoint file to resume from')
     parser.add_argument(
@@ -257,7 +265,7 @@ def main():
         {'type': 'Normalize', 'mean': [123.675, 116.28, 103.53, 0.5], 'std': [58.395, 57.12, 57.375, 0.5], 'to_rgb': True}
 
     # Remove unnecessary augmentations (changes shape) for now
-    cfg.data.train['pipeline'].pop(5) # PhotoMetricDistortion
+    #cfg.data.train['pipeline'].pop(5) # PhotoMetricDistortion
 
     # Set parameters for validation data
     cfg.data.val.img_dir = 'RGB_S_Images/val'
@@ -271,7 +279,7 @@ def main():
 
     # Set batch size to 2 to allow batch norm in ASPP decoder head to work
     # With 4 A40 setup, 16 per gpu for total batch size 64.
-    cfg.data['samples_per_gpu'] = 8
+    cfg.data['samples_per_gpu'] = SAMPLES_PER_GPU
 
     ## Remove reduce zero label for our binary mask, class agnostic training  
     # Otherwise produces bug with 0/255 rolled back labels
@@ -309,6 +317,7 @@ def main():
     #cfg.data.val['pipeline'][2]['transforms'][2] = {'type': 'Resize', 'img_scale': (512, 512), 'ratio_range': (1.0, 1.0)}
     
 
+
     datasets = [build_dataset(cfg.data.train)]
     # More changes to switch to RGB-S data
     datasets[0].img_suffix = '.npy'
@@ -340,11 +349,10 @@ def main():
 
     # For debugging call validation interval sooner
     # Debug value changed to 2050
-    EVAL_INTERVAL = 1000
     cfg.checkpoint_config.interval = EVAL_INTERVAL
     cfg.evaluation.interval = EVAL_INTERVAL
 
-    cfg.optimizer['lr'] = 1e-4
+    cfg.optimizer['lr'] = INIT_LR
 
     train_segmentor(
         model,
