@@ -159,7 +159,8 @@ def single_gpu_test(model, # the RGB model
                         img_metas = data['img_metas'].data[0]
                 if not VISUALIZING_TRAINED_MODEL:
                 # We dont have 3D RGB images to convert to imgs 
-                    img_tensor = torch.unsqueeze(img_tensor, 0)
+                    if not PRODUCING_MASKCLIP_DATA:
+                        img_tensor = torch.unsqueeze(img_tensor, 0)
                     imgs = tensor2imgs(img_tensor, **img_metas[0]['img_norm_cfg'])
                     assert len(imgs) == len(img_metas)
                 elif VISUALIZING_TRAINED_MODEL:
@@ -495,7 +496,9 @@ def multi_gpu_test(model,
 
     for batch_indices, data in zip(loader_indices, data_loader):
         with torch.no_grad():
-            result = model(return_loss=False, rescale=True, **data)
+            data['img'] = data['img'][0]
+            data['gt_semantic_seg'] = data['gt_semantic_seg'][0]
+            result = model(return_loss=False, **data)
 
         if efficient_test:
             result = [np2tmp(_, tmpdir='.efficient_test') for _ in result]
@@ -506,9 +509,13 @@ def multi_gpu_test(model,
         if pre_eval:
             # TODO: adapt samples_per_gpu > 1.
             # only samples_per_gpu=1 valid now
-            result = dataset.pre_eval(result, indices=batch_indices)
+            filename = data['img_metas'][0].data[0][0]['ori_filename']
+            target_label = filename.split("class")
+            target_label = int(target_label[1].strip(".npy"))
+            seg_pred = result[0][0][0]
 
-        results.extend(result)
+            result = dataset.rgbs_pre_eval(seg_pred, indices=batch_indices, class_num=target_label)
+            results.extend(result)
 
         if rank == 0:
             batch_size = len(result) * world_size

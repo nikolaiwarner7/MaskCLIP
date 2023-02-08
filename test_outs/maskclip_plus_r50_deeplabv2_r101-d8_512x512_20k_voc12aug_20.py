@@ -179,5 +179,5 @@ evaluation = dict(interval=2000, metric='mIoU', pre_eval=True)
 suppress_labels = [15, 16, 17, 18, 19]
 find_unused_parameters = True
 work_dir = 'test_outs/'
-gpu_ids = range(0, 4)
+gpu_ids = range(0, 1)
 auto_resume = False

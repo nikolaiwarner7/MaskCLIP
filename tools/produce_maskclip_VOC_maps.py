@@ -200,31 +200,19 @@ def main():
     # TODO: support multiple images per gpu (only minor changes are needed)
     
 
+    # Removing all augs at shard generation
+    cfg.data.train.pipeline.pop(6) #pad
+    cfg.data.train.pipeline.pop(5) #normalize
+    cfg.data.train.pipeline.pop(4) #randomflip
+    cfg.data.train.pipeline.pop(3) #randomcrop
+    cfg.data.train.pipeline.pop(2) #rand_resize
 
-    #cfg.data.train['gt_raw_seg'] = True
     if PRODUCE_MASKCLIP_MAPS_CONFIG == 'train':
-        # Was causing an issue in dataloader loading size, investigate shortly
-        #cfg.data.train['pipeline'].pop(3) # remove random crop
-        cfg.data.train['pipeline'].pop(5) # remove distortion
-
-        # We're creating raw samples so don't want any aug at this point
-        cfg.data.train['pipeline'][2] = {'type': 'Resize', 'img_scale': (512, 512), 'ratio_range': (1.0, 1.0)}
-        cfg.data.train['pipeline'][3] = {'type': 'RandomCrop', 'crop_size': (512, 512), 'cat_max_ratio': 1.0}
-        cfg.data.train['pipeline'][4] = {'type': 'RandomFlip', 'prob': 0.0}
-
-        # Collect the raw gt seg to make available during inference
-        # Need original meta-keys otherwise throws key errors
-        #cfg.data.train['pipeline'][6] = {'type': 'Collect', 'keys': ['img', 'gt_semantic_seg', 'raw_gt_seg'], \
-        #    'meta_keys' : ['filename', 'ori_filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'flip', 'flip_direction', 'img_norm_cfg']}
 
         dataset = build_dataset(cfg.data.train)
         # Need requisite options based of data.train/ val for handling gt_segs in pipeline
     elif PRODUCE_MASKCLIP_MAPS_CONFIG == 'val':
         # We want the same processing and access to gt_segs for validation 
-        cfg.data.train['pipeline'].pop(5) # remove distortion
-        cfg.data.train['pipeline'][2] = {'type': 'Resize', 'img_scale': (512, 512), 'ratio_range': (1.0, 1.0)}
-        cfg.data.train['pipeline'][3] = {'type': 'RandomCrop', 'crop_size': (512, 512), 'cat_max_ratio': 1.0}
-        cfg.data.train['pipeline'][4] = {'type': 'RandomFlip', 'prob': 0.0}
         cfg.data.val.pipeline = cfg.data.train.pipeline
         dataset = build_dataset(cfg.data.val)
 

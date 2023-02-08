@@ -59,7 +59,8 @@ def parse_args():
     group_gpus.add_argument(
         '--gpu-ids',
         # For Skynet cluster
-        default = [0, 1, 2, 3],
+        #default = [0, 1, 2, 3],
+        #default
         type=int,
         nargs='+',
         help='ids of gpus to use '
@@ -94,8 +95,8 @@ def parse_args():
     parser.add_argument(
         '--launcher',
         choices=['none', 'pytorch', 'slurm', 'mpi'],
-        #default = 'none',
-        default='pytorch',
+        default = 'none',
+        #default='pytorch',
         help='job launcher')
     parser.add_argument('--local_rank', type=int, default=1)
     parser.add_argument(
@@ -269,7 +270,8 @@ def main():
         {'type': 'Normalize', 'mean': [123.675, 116.28, 103.53, 0.5], 'std': [58.395, 57.12, 57.375, 0.5], 'to_rgb': True}
 
     # Set batch size to 2 to allow batch norm in ASPP decoder head to work
-    cfg.data['samples_per_gpu'] = 18
+    # With 4 A40 setup, 16 per gpu for total batch size 64.
+    cfg.data['samples_per_gpu'] = 8
 
     ## Remove reduce zero label for our binary mask, class agnostic training  
     # Otherwise produces bug with 0/255 rolled back labels
@@ -313,7 +315,7 @@ def main():
     datasets[0].seg_map_suffix = '.npy'
 
     # Set the number of training steps (iterations)
-    cfg.runner['max_iters'] = 3e5
+    cfg.runner['max_iters'] = 2e5
     
     if len(cfg.workflow) == 2:
         val_dataset = copy.deepcopy(cfg.data.val)
@@ -338,11 +340,11 @@ def main():
 
     # For debugging call validation interval sooner
     # Debug value changed to 2050
-    EVAL_INTERVAL = 2000
+    EVAL_INTERVAL = 1000
     cfg.checkpoint_config.interval = EVAL_INTERVAL
     cfg.evaluation.interval = EVAL_INTERVAL
 
-    cfg.optimizer['lr'] = 3e-3
+    cfg.optimizer['lr'] = 1e-4
 
     train_segmentor(
         model,

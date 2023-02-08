@@ -13,7 +13,9 @@ EVALUATE_AND_VISUALIZE = False
 
 CLIP_SIM_THRESHOLD_PRESENT = 24.5 # Experiment with
 
-DELETE_DATA = False
+
+## Use this setting carefully! Only with PRODUCING_MASKCLIP_DATA
+DELETE_DATA = True
 
 PRODUCE_MASKCLIP_MAPS_CONFIG = 'val' # 'train' or 'val'
 SUBSAMPLE = 2000 # Number of samples to take for producing our maskclip-heatmap dataset

@@ -2,7 +2,7 @@
 import collections
 
 from mmcv.utils import build_from_cfg
-from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, EVALUATE_USING_CLIP
+from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, EVALUATE_USING_CLIP, PRODUCE_MASKCLIP_MAPS_CONFIG
 import numpy as np
 from ..builder import PIPELINES
 
@@ -41,8 +41,13 @@ class Compose(object):
         # 2DO: add flag so this doesn't get called during actual training job
 
         if PRODUCING_MASKCLIP_DATA:
-            if 'raw_gt_seg' not in self.transforms[8].keys:
-                self.transforms[8].keys.append('raw_gt_seg')
+            if PRODUCE_MASKCLIP_MAPS_CONFIG == 'train':
+                if 'raw_gt_seg' not in self.transforms[9].keys:
+                    self.transforms[9].keys.append('raw_gt_seg')
+            # There's no photometric distortion in the val set now
+            elif PRODUCE_MASKCLIP_MAPS_CONFIG == 'val':
+                if 'raw_gt_seg' not in self.transforms[8].keys:
+                    self.transforms[8].keys.append('raw_gt_seg')
 
         for i, t in enumerate(self.transforms):
             if isinstance(t, PIPELINES.get('Pad')) and EVALUATE_USING_CLIP:
