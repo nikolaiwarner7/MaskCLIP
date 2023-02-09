@@ -41,12 +41,14 @@ from mmseg.apis import multi_gpu_test, single_gpu_test, vis_output
 from mmseg.datasets import build_dataloader, build_dataset
 from mmseg.models import build_segmentor
 
+RUN_NAME = 'iter_30000.pth'
+RUN_LOCATION ='saved_runs/BS128_LR4E-4_DATE2_8/' + RUN_NAME
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description='mmseg test (and eval) a model')
     parser.add_argument(
-    '--load-from', default='test_outs/iter_50000.pth', help='the checkpoint file to load weights from')
+    '--load-from', default=RUN_LOCATION, help='the checkpoint file to load weights from')
     parser.add_argument('--config', default='configs/maskclip/maskclip_r50_512x512_voc12aug_20.py', help='test config file path')
     parser.add_argument('--checkpoint', default='pretrain/RN50_clip_backbone.pth', help='checkpoint file')
     parser.add_argument(

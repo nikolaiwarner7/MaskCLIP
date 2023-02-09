@@ -141,3 +141,5 @@ VOCtrainval_11*
 
 # Google collaboration -colab file
 VOC_Instance_Segmentation_Data_Creation.ipynb
+VOC_Instance_Segmentation_utils.py
+tools/instance_seg_produce_maps.py
