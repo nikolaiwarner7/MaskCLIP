@@ -2,6 +2,7 @@
 import warnings
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
+from nwarner_common_utils import TRAINING_RGBSI_MODEL
 
 import mmcv
 import numpy as np
@@ -124,6 +125,8 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         should be double nested (i.e.  List[Tensor], List[List[dict]]), with
         the outer list indicating test time augmentations.
         """
+        if TRAINING_RGBSI_MODEL:
+            img = img.float()
         if return_loss:
             # Replacing 'gt_semantic_seg' with 'raw_gt_seg'
             if 'raw_gt_seg' in kwargs.keys():

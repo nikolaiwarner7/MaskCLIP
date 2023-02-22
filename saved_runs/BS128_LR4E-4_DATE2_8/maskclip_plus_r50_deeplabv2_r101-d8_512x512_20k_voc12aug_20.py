@@ -179,5 +179,5 @@ evaluation = dict(interval=2000, metric='mIoU', pre_eval=True)
 suppress_labels = [15, 16, 17, 18, 19]
 find_unused_parameters = True
 work_dir = 'saved_runs/BS128_LR4E-4_DATE2_8'
-gpu_ids = range(0, 8)
+gpu_ids = range(0, 4)
 auto_resume = False

@@ -2,7 +2,7 @@
 import collections
 
 from mmcv.utils import build_from_cfg
-from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, EVALUATE_USING_CLIP, TRAINING_RGBS_MODEL
+from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, EVALUATE_USING_CLIP, TRAINING_RGBS_MODEL, TRAINING_RGBSI_MODEL
 import numpy as np
 from ..builder import PIPELINES
 
@@ -58,6 +58,29 @@ class Compose(object):
                         
                 # Skip current iteration
                 continue
+
+            if isinstance(t, PIPELINES.get('PhotoMetricDistortion')) and TRAINING_RGBSI_MODEL:
+                saliency_click_data = data['img'][:,:,-2:]
+                data['img'] = data['img'][:,:,:-2]
+                
+                data = t(data)
+                data['img'] = np.concatenate((data['img'],saliency_click_data), axis=-1)
+                        
+                # Skip current iteration
+                continue
+            
+            # Immnormalize doesn't support >4 channels
+            # Point click map is 0/1 shouldnt need norm anyways
+            if isinstance(t, PIPELINES.get('Normalize')) and TRAINING_RGBSI_MODEL:
+                click_data = data['img'][:,:,-1:]
+                data['img'] = data['img'][:,:,:-1]
+                
+                data = t(data)
+                data['img'] = np.concatenate((data['img'],click_data), axis=-1)
+                        
+                # Skip current iteration
+                continue
+
             data = t(data)
             if data is None:
                 return None

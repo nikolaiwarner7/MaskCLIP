@@ -139,7 +139,12 @@ test_outs/latest.pth
 Miniconda3-latest*
 VOCtrainval_11*
 
-# Google collaboration -colab file
+# Google collaboration files  not in repo
 VOC_Instance_Segmentation_Data_Creation.ipynb
 VOC_Instance_Segmentation_utils.py
+instance_seg_produce_maps_COCO.py
+instance_seg_produce_maps_VOC.py
+MSCOCO_Instance_Segmentation_Data_Creation.ipynb
 tools/instance_seg_produce_maps.py
+tools/COCO_produce_RGBSI_maps_from_colab.py
+MSCOCO_Instance_Seg_utils.py

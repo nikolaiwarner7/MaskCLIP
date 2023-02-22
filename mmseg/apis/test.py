@@ -16,6 +16,7 @@ from mmcv.runner import get_dist_info
 from nwarner_common_utils import CLASS_SPLITS, SUBSAMPLE, OUT_ANNOTATION_DIR, OUT_RGB_S_DIR, SPLIT
 from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, VISUALIZING_TRAINED_MODEL
 from nwarner_common_utils import CLIP_SIM_THRESHOLD_PRESENT, EVALUATE_AND_VISUALIZE
+from nwarner_common_utils import TRAINING_RGBSI_MODEL
 from PIL import Image
 import requests
 
@@ -404,10 +405,14 @@ def single_gpu_test(model, # the RGB model
                         filename = data['img_metas'].data[0][0]['filename']
                     else:
                         filename = data['img_metas'][0].data[0][0]['ori_filename']
-                    target_label = filename.split("class")
-                    # Grab the target class num  (1-20, not 0 idxs)
-                    target_label = int(target_label[1].strip(".npy"))
-
+                    if not TRAINING_RGBSI_MODEL:
+                        target_label = filename.split("class")
+                        # Grab the target class num  (1-20, not 0 idxs)
+                        target_label = int(target_label[1].strip(".npy"))
+                    if TRAINING_RGBSI_MODEL:
+                        target_label = filename.split("class")[1]
+                        target_label = target_label.split("_")[0]
+                        target_label = int(target_label)    
 
                     seg_pred = result[0][0][0]
                     result = dataset.rgbs_pre_eval(seg_pred, indices=batch_indices, class_num=target_label)
@@ -510,8 +515,17 @@ def multi_gpu_test(model,
             # TODO: adapt samples_per_gpu > 1.
             # only samples_per_gpu=1 valid now
             filename = data['img_metas'][0].data[0][0]['ori_filename']
-            target_label = filename.split("class")
-            target_label = int(target_label[1].strip(".npy"))
+
+            if not TRAINING_RGBSI_MODEL:
+                target_label = filename.split("class")
+                # Grab the target class num  (1-20, not 0 idxs)
+                target_label = int(target_label[1].strip(".npy"))
+            if TRAINING_RGBSI_MODEL:
+                target_label = filename.split("class")[1]
+                target_label = target_label.split("_")[0]
+                target_label = int(target_label)    
+
+
             seg_pred = result[0][0][0]
 
             result = dataset.rgbs_pre_eval(seg_pred, indices=batch_indices, class_num=target_label)

@@ -5,7 +5,7 @@ import os
 
 #Check these settings prior to running
 #os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-#os.environ["CUDA_VISIBLE_DEVICES"] = "1, 2, 3, 4"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 import os.path as osp
@@ -35,10 +35,10 @@ from mmseg.utils import collect_env, get_root_logger
 ## CHANGE FOR EACH RUN:
 RUN_NAME = 'RGBSI_Test_2_9'
 SAMPLES_PER_GPU = 16
-INIT_LR = 4e-4
+INIT_LR = 5e-3
 
 #
-EVAL_INTERVAL = 2000
+EVAL_INTERVAL = 1000
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a segmentor')
@@ -73,7 +73,7 @@ def parse_args():
         nargs='+',
         help='ids of gpus to use '
         '(only applicable to non-distributed training)')
-    parser.add_argument('--seed', type=int, default=5050, help='random seed')
+    parser.add_argument('--seed', type=int, help='random seed')
     parser.add_argument(
         '--deterministic',
         action='store_true',
@@ -103,8 +103,8 @@ def parse_args():
     parser.add_argument(
         '--launcher',
         choices=['none', 'pytorch', 'slurm', 'mpi'],
-        default = 'none',
-        #default='pytorch',
+        #default = 'none',
+        default='pytorch',
         help='job launcher')
     parser.add_argument('--local_rank', type=int, default=1)
     parser.add_argument(
@@ -112,7 +112,7 @@ def parse_args():
         action='store_true',
         # Turned off auto resu
         #default = True, # Resume training from last point
-        help='resume from the latest checkpoint automatically.')3
+        help='resume from the latest checkpoint automatically.')
     args = parser.parse_args()
 
     if args.options and args.cfg_options:
@@ -252,11 +252,12 @@ def main():
     # Set mean to 0.5, std 0.5 (0,1) range of data for saliency
     
     # Normalization constants changed for 5th channel (2DO: check if appropriate)
+    # Can't support >4 channels for innorm- so we process in compose to leave last channel unnormalized
     cfg.data.train['pipeline'][6] = \
-        {'type': 'Normalize', 'mean': [123.675, 116.28, 103.53, 0.5, 0.5], 'std': [58.395, 57.12, 57.375, 0.5, 0.5], 'to_rgb': True}
+        {'type': 'Normalize', 'mean': [123.675, 116.28, 103.53, 0.5], 'std': [58.395, 57.12, 57.375, 0.5], 'to_rgb': True}
 
     # Remove unnecessary augmentations (changes shape) for now
-    #cfg.data.train['pipeline'].pop(5) # PhotoMetricDistortion
+    cfg.data.train['pipeline'].pop(5) # PhotoMetricDistortion
 
     # Set parameters for validation data
     cfg.data.val.img_dir = 'Inst_Seg_RGBS_Images/val'
@@ -267,7 +268,7 @@ def main():
 
     # Set normalization in 4D for val
     cfg.data.val['pipeline'][1]['transforms'][2] = \
-        {'type': 'Normalize', 'mean': [123.675, 116.28, 103.53, 0.5, 0.5], 'std': [58.395, 57.12, 57.375, 0.5, 0.5], 'to_rgb': True}
+        {'type': 'Normalize', 'mean': [123.675, 116.28, 103.53, 0.5], 'std': [58.395, 57.12, 57.375, 0.5], 'to_rgb': True}
 
     # Set batch size to 2 to allow batch norm in ASPP decoder head to work
     # With 4 A40 setup, 16 per gpu for total batch size 64.

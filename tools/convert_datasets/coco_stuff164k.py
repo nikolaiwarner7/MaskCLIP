@@ -1,9 +1,11 @@
 import argparse
 import os.path as osp
+import os
 import shutil
 from functools import partial
 from glob import glob
 
+from pycocotools.coco import COCO
 import mmcv
 import numpy as np
 from PIL import Image
@@ -83,105 +85,6 @@ clsID_to_trID = {
     78: 69,
     79: 70,
     80: 71,
-    81: 72,
-    83: 73,
-    84: 74,
-    85: 75,
-    86: 76,
-    87: 77,
-    88: 78,
-    89: 79,
-    91: 80,
-    92: 81,
-    93: 82,
-    94: 83,
-    95: 84,
-    96: 85,
-    97: 86,
-    98: 87,
-    99: 88,
-    100: 89,
-    101: 90,
-    102: 91,
-    103: 92,
-    104: 93,
-    105: 94,
-    106: 95,
-    107: 96,
-    108: 97,
-    109: 98,
-    110: 99,
-    111: 100,
-    112: 101,
-    113: 102,
-    114: 103,
-    115: 104,
-    116: 105,
-    117: 106,
-    118: 107,
-    119: 108,
-    120: 109,
-    121: 110,
-    122: 111,
-    123: 112,
-    124: 113,
-    125: 114,
-    126: 115,
-    127: 116,
-    128: 117,
-    129: 118,
-    130: 119,
-    131: 120,
-    132: 121,
-    133: 122,
-    134: 123,
-    135: 124,
-    136: 125,
-    137: 126,
-    138: 127,
-    139: 128,
-    140: 129,
-    141: 130,
-    142: 131,
-    143: 132,
-    144: 133,
-    145: 134,
-    146: 135,
-    147: 136,
-    148: 137,
-    149: 138,
-    150: 139,
-    151: 140,
-    152: 141,
-    153: 142,
-    154: 143,
-    155: 144,
-    156: 145,
-    157: 146,
-    158: 147,
-    159: 148,
-    160: 149,
-    161: 150,
-    162: 151,
-    163: 152,
-    164: 153,
-    165: 154,
-    166: 155,
-    167: 156,
-    168: 157,
-    169: 158,
-    170: 159,
-    171: 160,
-    172: 161,
-    173: 162,
-    174: 163,
-    175: 164,
-    176: 165,
-    177: 166,
-    178: 167,
-    179: 168,
-    180: 169,
-    181: 170,
     255: 255
 }
 
@@ -204,32 +107,44 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description=\
         'Convert COCO Stuff 164k annotations to mmsegmentation format')  # noqa
-    parser.add_argument('coco_path', help='coco stuff path')
+    #parser.add_argument('coco_path', default='/data/coco', help='coco stuff path')
     parser.add_argument('-o', '--out_dir', help='output path')
     parser.add_argument(
         '--nproc', default=16, type=int, help='number of process')
     args = parser.parse_args()
     return args
 
+def open_files(img_name, coco):
+  img = coco.imgs[img_name]
+  annIds = coco.getAnnIds(imgIds=[img['id']])
+  anns = coco.loadAnns(annIds)
+  num_obj = len(anns)
+  print(f'contains: {num_obj} objects')
+  return anns
+
+
 
 def main():
     args = parse_args()
-    coco_path = args.coco_path
+    coco_path = 'data/coco'
     nproc = args.nproc
-
+    print(os.getcwd())
     out_dir = args.out_dir or coco_path
+    print(out_dir)
+
     out_img_dir = osp.join(out_dir, 'images')
     out_mask_dir = osp.join(out_dir, 'annotations')
 
-    mmcv.mkdir_or_exist(osp.join(out_mask_dir, 'train2017'))
-    mmcv.mkdir_or_exist(osp.join(out_mask_dir, 'val2017'))
+
+    #mmcv.mkdir_or_exist(osp.join(out_mask_dir, 'train2017'))
+    #mmcv.mkdir_or_exist(osp.join(out_mask_dir, 'val2017'))
 
     if out_dir != coco_path:
         shutil.copytree(osp.join(coco_path, 'images'), out_img_dir)
 
-    train_list = glob(osp.join(coco_path, 'annotations', 'train2017', '*.png'))
+    train_list = glob(osp.join(coco_path, 'images', 'train2017', '*.jpg'))
     train_list = [file for file in train_list if '_labelTrainIds' not in file]
-    test_list = glob(osp.join(coco_path, 'annotations', 'val2017', '*.png'))
+    test_list = glob(osp.join(coco_path, 'images', 'val2017', '*.jpg'))
     test_list = [file for file in test_list if '_labelTrainIds' not in file]
     assert (len(train_list) +
             len(test_list)) == COCO_LEN, 'Wrong length of list {} & {}'.format(

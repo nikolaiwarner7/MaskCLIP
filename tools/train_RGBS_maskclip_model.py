@@ -5,7 +5,7 @@ import os
 
 #Check these settings prior to running
 #os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-#os.environ["CUDA_VISIBLE_DEVICES"] = "1, 2, 3, 4"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
 
 
 import os.path as osp
@@ -33,9 +33,12 @@ from mmseg.models import build_segmentor
 from mmseg.utils import collect_env, get_root_logger
 
 ## CHANGE FOR EACH RUN:
-RUN_NAME = 'BS128_LR4E-4_DATE2_8'
+RUN_NAME = 'BS32_LR1E-2_POLYPWR0.7'
 SAMPLES_PER_GPU = 16 # 8 gpus
-INIT_LR = 4e-4
+INIT_LR = 1e-2
+
+# Set this to 0.9 if defualt!
+LR_DECAY_POWER = 0.7 # default, polynomial LR decay with 0.9 power, set to 0.75 here
 
 #
 EVAL_INTERVAL = 2000
@@ -73,7 +76,9 @@ def parse_args():
         nargs='+',
         help='ids of gpus to use '
         '(only applicable to non-distributed training)')
-    parser.add_argument('--seed', type=int, default=5050, help='random seed')
+    # fix random seed for debugging or vis out
+    #parser.add_argument('--seed', type=int, default=5050, help='random seed')    
+    parser.add_argument('--seed', type=int, help='random seed')
     parser.add_argument(
         '--deterministic',
         action='store_true',
@@ -103,10 +108,10 @@ def parse_args():
     parser.add_argument(
         '--launcher',
         choices=['none', 'pytorch', 'slurm', 'mpi'],
-        default = 'none',
-        #default='pytorch',
+        #default = 'none',
+        default='pytorch',
         help='job launcher')
-    parser.add_argument('--local_rank', type=int, default=1)
+    parser.add_argument('--local_rank', type=int,) #default=1)
     parser.add_argument(
         '--auto-resume',
         action='store_true',
@@ -325,6 +330,7 @@ def main():
 
     # Set the number of training steps (iterations)
     cfg.runner['max_iters'] = 2e5
+    cfg.lr_config.power = LR_DECAY_POWER
     
     if len(cfg.workflow) == 2:
         val_dataset = copy.deepcopy(cfg.data.val)

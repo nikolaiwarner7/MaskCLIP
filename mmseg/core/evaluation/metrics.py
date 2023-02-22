@@ -72,6 +72,10 @@ def intersect_and_union(pred_label,
         label[label == 254] = 255
 
     mask = (label != ignore_index)
+
+    if len(pred_label.shape)==2:
+        pred_label = pred_label[:,:,None]
+
     pred_label = pred_label[mask]
     label = label[mask]
 

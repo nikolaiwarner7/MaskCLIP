@@ -148,6 +148,9 @@ def instance_seg_test_single_gpu(model, # the RGB model
                         out_name_no_jpg = out_name.replace('.jpg', '')
 
                         all_pts_in_rgb_file, coords = load_test_points(out_name_no_jpg, DATA_DIR)
+                        if not coords:
+                            # Should skip making a entry for problematic ones, count
+                            continue
                         # Now, we need to separate which heatmaps belong to which points
 
                         # Grab the raw instance segmentation

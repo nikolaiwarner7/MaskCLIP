@@ -5,6 +5,9 @@ os.chdir('/coc/flash3/nwarner30/MaskCLIP/')
 # 'instance' or 'semantic'
 from nwarner_common_utils import SETTING, IMG_DIR, OUT_PREFIX
 
+
+# Check setting config in nwarner_common_utils
+
 for config in ['train', 'val']:
     full_img_dir = IMG_DIR + config
     WRITTEN_DIR = 'data/VOCdevkit/VOC2012/ImageSets/Segmentation/'

@@ -9,7 +9,7 @@ from .. import builder
 from ..builder import SEGMENTORS
 from .base import BaseSegmentor
 
-from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, VISUALIZING_TRAINED_MODEL, EVALUATE_USING_CLIP
+from nwarner_common_utils import PRODUCING_MASKCLIP_DATA, VISUALIZING_TRAINED_MODEL, EVALUATE_USING_CLIP, TRAINING_RGBSI_MODEL
 
 @SEGMENTORS.register_module()
 class EncoderDecoder(BaseSegmentor):
@@ -147,7 +147,11 @@ class EncoderDecoder(BaseSegmentor):
         """
         #import numpy as np
         #img = torch.tensor(np.zeros((1,4,512,512)))
-        x = self.extract_feat(img.cuda())
+        if TRAINING_RGBSI_MODEL:
+            img = img.float()
+            x = self.extract_feat(img.cuda())
+        else:
+            x = self.extract_feat(img.cuda())
 
         losses = dict()
 

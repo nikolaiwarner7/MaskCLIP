@@ -41,8 +41,8 @@ from mmseg.apis import multi_gpu_test, single_gpu_test, vis_output
 from mmseg.datasets import build_dataloader, build_dataset
 from mmseg.models import build_segmentor
 
-RUN_NAME = 'iter_30000.pth'
-RUN_LOCATION ='saved_runs/BS128_LR4E-4_DATE2_8/' + RUN_NAME
+RUN_NAME = 'iter_40000.pth'
+RUN_LOCATION ='saved_runs/BS64_LR5E-3/' + RUN_NAME
 
 def parse_args():
     parser = argparse.ArgumentParser(

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 CONFIG=$1
-GPUS=$'auto'
-PORT=${PORT:-29500}
+GPUS=$'2' # use '4' or 'auto'
+PORT=${PORT:-29570}
 
 PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
 python -m torch.distributed.launch --nproc_per_node=$GPUS --master_port=$PORT \
