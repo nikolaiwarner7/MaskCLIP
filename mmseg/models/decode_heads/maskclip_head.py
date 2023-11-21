@@ -7,6 +7,19 @@ from mmcv.utils import print_log
 from mmseg.utils import get_root_logger
 from ..builder import HEADS
 from .decode_head import BaseDecodeHead
+import ipdb
+
+import sys
+sys.path.append('/srv/essa-lab/flash3/nwarner30/MaskCLIP/tools')
+from nwarner_uncommon_utils import OPEN_INFERENCE, PROMPT_TEMPLATES, BG_CLASSES
+
+from importlib import reload
+#import open_inference_config
+#reload(open_inference_config)
+from open_inference_config import OPEN_INFERENCE_QUERY
+
+from nwarner_common_utils import ALL_OI_SEG_CLASSES
+import tqdm
 
 @HEADS.register_module()
 class MaskClipHead(BaseDecodeHead):
@@ -15,8 +28,31 @@ class MaskClipHead(BaseDecodeHead):
                     visual_projs_path, vit=False, ks_thresh=0., pd_thresh=0.,
                     attn_pooling=False, num_heads=32, **kwargs):
         super(MaskClipHead, self).__init__(**kwargs)
+        #ipdb.set_trace()
+        #ipdb.set_trace()
+        
+        if OPEN_INFERENCE:
 
-        self.text_categories = text_categories
+            """
+            from transformers import CLIPProcessor, CLIPModel
+
+            processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
+            model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
+
+            # Process the text and image (image part will be empty here)
+            text = "a picture of a dog"
+            dummy_image = torch.rand((1, 3, 224, 224))
+            inputs = processor(text=[text], images=dummy_image, return_tensors="pt")
+            
+
+            # Embed the text
+            outputs = model(**inputs)
+            text_embeds = outputs.text_embeds # this is your text query in the CLIP space
+            """
+            self.text_categories = 1
+        else:
+            self.text_categories = text_categories
+
         self.text_channels = text_channels
         self.text_embeddings_path = text_embeddings_path
         self.visual_projs_path = visual_projs_path
@@ -52,9 +88,35 @@ class MaskClipHead(BaseDecodeHead):
         self.load_visual_projs()
 
     def load_text_embeddings(self):
-        loaded = torch.load(self.text_embeddings_path, map_location='cuda')
-        self.text_embeddings[:, :] = loaded[:, :]
-        print_log(f'Loaded text embeddings from {self.text_embeddings_path}', logger=get_root_logger())
+        if OPEN_INFERENCE:
+            import clip
+            #reload(open_inference_config)
+            #from open_inference_config import OPEN_INFERENCE_QUERY
+            #from open_inference_config import OPEN_INFERENCE_QUERY
+            print("Query is", OPEN_INFERENCE_QUERY)
+            #ipdb.set_trace()
+            model, preprocess = clip.load('RN50')
+            classnames = OPEN_INFERENCE_QUERY + ALL_OI_SEG_CLASSES # Concatenate two lists
+            with torch.no_grad():
+                zeroshot_weights = []
+                for classname in tqdm.tqdm(classnames):
+                    texts = [template.format(classname) for template in PROMPT_TEMPLATES] #format with class
+                    texts = clip.tokenize(texts).cuda() #tokenize
+                    class_embeddings = model.encode_text(texts) #embed with text encoder
+                    class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
+                    class_embedding = class_embeddings.mean(dim=0)
+                    class_embedding /= class_embedding.norm()
+                    zeroshot_weights.append(class_embedding)
+                zeroshot_weights = torch.stack(zeroshot_weights, dim=1).cuda()
+            transposed_weights = zeroshot_weights.transpose(0, 1)
+            self.text_embeddings = transposed_weights.float()
+            #ipdb.set_trace()
+            print("Loaded open inference embeddings for query, %s" % OPEN_INFERENCE_QUERY)
+        else:
+            loaded = torch.load(self.text_embeddings_path, map_location='cuda')
+            self.text_embeddings[:, :] = loaded[:, :]
+            print_log(f'Loaded text embeddings from {self.text_embeddings_path}', logger=get_root_logger())
+        #ipdb.set_trace()
 
     def load_visual_projs(self):
         loaded = torch.load(self.visual_projs_path, map_location='cuda')
@@ -69,6 +131,9 @@ class MaskClipHead(BaseDecodeHead):
         print_log(f'Loaded proj weights from {self.visual_projs_path}', logger=get_root_logger())
     
     def forward(self, inputs):
+        #ipdb.set_trace()
+        #
+        # ipdb.set_trace()
         x = self._transform_inputs(inputs)
         q, k, v, cls_token = None, None, None, None
         if self.vit:
@@ -122,6 +187,11 @@ class MaskClipHead(BaseDecodeHead):
 
     def cls_seg(self, feat):
         feat = feat / feat.norm(dim=1, keepdim=True)
+        #ipdb.set_trace()
+        #ipdb.set_trace() 
+        # Load again if query changed
+        #if OPEN_INFERENCE:
+        #    self.load_text_embeddings()
         output = F.conv2d(feat, self.text_embeddings[:, :, None, None])
         
         return output
